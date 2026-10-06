@@ -30,7 +30,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     <div
       onClick={() => onSelectDay(dateStr)}
       onDoubleClick={() => onOpenFullDay(dateStr)}
-      className={`min-h-[90px] sm:min-h-[110px] p-2 pb-3.5 flex flex-col justify-between transition-colors cursor-pointer group relative border-r border-b border-[var(--color-border)] select-none bg-transparent ${
+      className={`min-h-[90px] sm:min-h-[110px] p-2 pb-2 flex flex-col justify-between transition-colors cursor-pointer group relative border-r border-b border-[var(--color-border)] select-none bg-transparent ${
         isCurrentMonth ? '' : 'opacity-35'
       } hover:bg-[var(--color-cell-hover)] ${
         isToday ? 'ring-1 ring-inset ring-[var(--color-accent)]' : ''
@@ -59,7 +59,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
       </div>
 
       {/* Center: Quiet task chips (fully rounded: rounded-full) */}
-      <div className="flex-1 my-1 space-y-1 overflow-hidden pb-1">
+      <div className="flex-1 my-0.5 space-y-0.5 overflow-hidden">
         {tasks.slice(0, 2).map(task => {
           const meta = PRIORITY_META[task.priority];
           const isDone = task.status === 'done';
@@ -86,7 +86,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
         })}
 
         {tasks.length > 2 && (
-          <div className="text-[10px] text-[var(--color-text-muted)] px-1.5 font-mono">
+          <div className="text-[10px] text-[var(--color-text-muted)] px-1.5 font-mono leading-tight">
             +{tasks.length - 2} ещё
           </div>
         )}

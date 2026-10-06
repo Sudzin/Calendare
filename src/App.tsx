@@ -91,35 +91,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden p-3 gap-3 text-[var(--color-text-primary)] relative select-none">
-      {/* Fixed Ambient Light Glows behind glass panels */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        {/* Top-Left Spot (#235347, alpha 0.35) */}
-        <div
-          className="fixed -top-28 -left-28 w-[55vw] h-[55vw] max-w-[750px] max-h-[750px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, rgba(35, 83, 71, 0.35) 0%, rgba(35, 83, 71, 0) 70%)',
-            filter: 'blur(60px)',
-          }}
-        />
-        {/* Bottom-Right Spot (#8EB69B, alpha 0.12) */}
-        <div
-          className="fixed -bottom-28 -right-28 w-[60vw] h-[60vw] max-w-[800px] max-h-[800px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, rgba(142, 182, 155, 0.12) 0%, rgba(142, 182, 155, 0) 70%)',
-            filter: 'blur(70px)',
-          }}
-        />
-        {/* Center-Top Ambient Accent */}
-        <div
-          className="fixed top-1/4 right-1/4 w-[35vw] h-[35vw] max-w-[500px] max-h-[500px] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle, rgba(35, 83, 71, 0.20) 0%, rgba(35, 83, 71, 0) 70%)',
-            filter: 'blur(70px)',
-          }}
-        />
-      </div>
-
+    <div className="flex h-screen w-screen overflow-hidden p-3 gap-3 text-[var(--color-text-primary)] relative">
       {/* 1. Narrow Left Column (~64px Icon Rail) - Floating glass panel */}
       <Sidebar
         activeTab={activeNavTab}

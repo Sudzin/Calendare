@@ -85,8 +85,6 @@
 
 .theme-light .glass-panel {
   background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(35, 83, 71, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
@@ -115,7 +113,6 @@
     max-height: 800px;
     border-radius: 50%;
     background: radial-gradient(circle, rgba(35, 83, 71, 0.35) 0%, transparent 70%);
-    filter: blur(60px);
     pointer-events: none;
     z-index: 0;
   }
@@ -123,15 +120,10 @@
   body::after {
     content: "";
     position: fixed;
-    bottom: -15vw;
-    right: -15vw;
-    width: 65vw;
-    height: 65vw;
-    max-width: 850px;
-    max-height: 850px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(142, 182, 155, 0.12) 0%, transparent 70%);
-    filter: blur(70px);
+    inset: 0;
+    background: 
+      radial-gradient(circle 35vw at 90% 90%, rgba(142, 182, 155, 0.12) 0%, transparent 70%),
+      radial-gradient(circle 25vw at 75% 25%, rgba(35, 83, 71, 0.20) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }

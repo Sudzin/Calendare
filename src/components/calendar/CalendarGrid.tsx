@@ -96,7 +96,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   }, [tasks]);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden select-none">
       {/* Top Header: Seamless within floating glass-panel */}
       <header className="px-6 py-4 border-b border-[var(--color-border)] bg-transparent flex items-center justify-between shrink-0 select-none">
         {/* Large Month Title + Quiet kicker */}
