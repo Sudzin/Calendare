@@ -241,7 +241,7 @@ export default function App() {
       {/* ================= TOP NAVIGATION BAR (Windows 11 Fluent Header) ================= */}
       <header className="h-12 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md flex items-center justify-between px-4 z-30 shrink-0">
         
-        {/* ZONE 1: Brand Wordmark (Single text element according to Top Bar Contract) */}
+        {/* ZONE 1: Brand Wordmark (Clean single element) */}
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
             <CalendarIcon className="w-4 h-4" />
@@ -249,12 +249,9 @@ export default function App() {
           <span className="text-sm font-bold tracking-tight text-white whitespace-nowrap">
             Chronos-Task
           </span>
-          <span className="hidden sm:inline-block text-[10px] text-neutral-500 font-mono border-l border-neutral-800 pl-2">
-            Local-First Planner
-          </span>
         </div>
 
-        {/* ZONE 2: Clean Actions / Feature Hub */}
+        {/* ZONE 2: Primary Actions */}
         <nav className="flex items-center gap-1.5 sm:gap-2">
           {/* Rollover Simulator button */}
           <button
@@ -267,10 +264,13 @@ export default function App() {
             className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 rounded-lg text-xs font-medium text-neutral-200 hover:text-white flex items-center gap-1.5 transition-colors whitespace-nowrap"
           >
             <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden lg:inline">Перенос долгов (+1 приоритет)</span>
-            <span className="lg:hidden">Долги</span>
+            <span className="hidden sm:inline">Перенос долгов (+1 приоритет)</span>
+            <span className="sm:hidden">Долги</span>
           </button>
+        </nav>
 
+        {/* ZONE 3: Settings & Windows Window Controls (Shifted to the right) */}
+        <div className="flex items-center gap-2">
           {/* Settings / SQLite sync button */}
           <button
             type="button"
@@ -282,37 +282,40 @@ export default function App() {
             className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 rounded-lg text-xs font-medium text-neutral-200 hover:text-white flex items-center gap-1.5 transition-colors whitespace-nowrap"
           >
             <Settings className="w-3.5 h-3.5 text-neutral-400" />
-            <span className="hidden sm:inline">Синхронизация & Настройки</span>
-          </button>
-        </nav>
-
-        {/* ZONE 3: Windows Window Controls (Minimize & Close into Tray) */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              setIsMinimized(true);
-              pushToast('Chronos-Task', 'Приложение свернуто в системный трей Windows.');
-            }}
-            title="Свернуть в трей"
-            className="p-1.5 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded transition-colors"
-          >
-            <Minus className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Синхронизация & Настройки</span>
+            <span className="md:hidden">Настройки</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              setIsMinimized(true);
-              pushToast('Chronos-Task', 'Приложение свернуто в трей и продолжает работать в фоне.');
-            }}
-            title="Закрыть окно (свернуть в трей)"
-            className="p-1.5 hover:bg-rose-600/80 text-neutral-400 hover:text-white rounded transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <div className="h-4 w-px bg-neutral-800 hidden sm:block mx-0.5" />
+
+          {/* Window controls */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setIsMinimized(true);
+                pushToast('Chronos-Task', 'Приложение свернуто в системный трей Windows.');
+              }}
+              title="Свернуть в трей"
+              className="p-1.5 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded transition-colors"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setIsMinimized(true);
+                pushToast('Chronos-Task', 'Приложение свернуто в трей и продолжает работать в фоне.');
+              }}
+              title="Закрыть окно (свернуть в трей)"
+              className="p-1.5 hover:bg-rose-600/80 text-neutral-400 hover:text-white rounded transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
       </header>
