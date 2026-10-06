@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { sound } from '../utils/sound';
 
 interface UsePomodoroProps {
@@ -21,15 +21,18 @@ export function usePomodoro({
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
 
+  const isRunningRef = useRef(false);
+  isRunningRef.current = isRunning;
+
   // Sync timeLeft when durations change and timer is paused
   useEffect(() => {
-    if (!isRunning) {
+    if (!isRunningRef.current) {
       setTimeLeft(mode === 'work' ? workMinutes * 60 : breakMinutes * 60);
     }
-  }, [workMinutes, breakMinutes, mode, isRunning]);
+  }, [workMinutes, breakMinutes, mode]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
