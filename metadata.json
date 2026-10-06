@@ -1,0 +1,7 @@
+{
+  "name": "Chronos-Task — Локальный Календарь и Задачи",
+  "description": "Персональный офлайн-планировщик для Windows: сетка календаря, расписание, to-do задачи, Pomodoro-таймер, авто-перенос с повышением приоритета и ТЗ.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
