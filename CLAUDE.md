@@ -40,30 +40,50 @@ npm run preview  # Preview production build locally
 /
 ├── CLAUDE.md                    # This file (AI instructions and review guide)
 ├── AI_CONTEXT.md                # Quick architectural summary & component hierarchy
-├── index.html                   # HTML entry point (Plus Jakarta Sans, JetBrains Mono)
+├── index.html                   # HTML entry point (Inter, Source Serif 4, JetBrains Mono)
 ├── metadata.json                # AI Studio application metadata
 ├── package.json                 # Dependencies and npm scripts
 ├── tsconfig.json                # TypeScript compiler configuration (bundler resolution)
 ├── vite.config.ts               # Vite configuration with Tailwind CSS plugin
 └── src/
     ├── main.tsx                 # React DOM mount point
-    ├── App.tsx                  # Root controller, state management, modal router, toast stack
-    ├── index.css                # Tailwind import, base typography, Windows scrollbar styles
+    ├── App.tsx                  # Clean root composition (~120 lines)
+    ├── index.css                # Tailwind @theme, semantic design tokens (dark/light), scrollbars
     ├── types.ts                 # TypeScript domain entities and contracts
-    ├── data/
-    │   └── initialTasks.ts      # Seed demo tasks (reflects student/engineer daily workflow)
+    ├── hooks/
+    │   ├── useTasks.ts          # CRUD + localStorage 'chronos_tasks' sync
+    │   ├── useSettings.ts       # Settings read/merge with DEFAULT_SETTINGS + theme sync
+    │   ├── useRollover.ts       # Priority escalation logic (+1 tier) and task rollover
+    │   ├── usePomodoro.ts       # Focus timer countdown, sessions, audio/notifications
+    │   └── useNotifications.ts  # In-app toast stack & browser Notification API
     ├── utils/
     │   ├── dateUtils.ts         # Russian calendar matrix, day calculations, formatting
+    │   ├── priorityUtils.ts     # Priority ladder logic, colors and token styles
+    │   ├── workloadUtils.ts     # Thin workload indicator calculation
     │   └── sound.ts             # Web Audio API synthesizer for chimes & alerts
+    ├── data/
+    │   └── initialTasks.ts      # Seed demo tasks
     └── components/
-        ├── CalendarView.tsx     # Month/Week calendar grid with workload dots and chips
-        ├── DayPreviewModal.tsx  # Popover preview on single-click
-        ├── DayWorkspaceModal.tsx# Master-Detail split-screen day workspace
-        ├── MarkdownWorkspace.tsx# Markdown editor & viewer with bidirectional checklist sync
-        ├── PomodoroTimer.tsx    # 25/5 Pomodoro focus timer with progress and notifications
-        ├── SettingsModal.tsx    # SQLite sync path, custom weekends, backup export/import
-        ├── RolloverAlertModal.tsx# Modal summary showing escalated tasks (+1 priority)
-        └── WindowsTraySimulator.tsx # Windows 11 taskbar simulation, tray flyout, and toasts
+        ├── layout/
+        │   └── Sidebar.tsx      # Left rail (240px: brand, +Новая задача (N), Pomodoro, settings)
+        ├── calendar/
+        │   ├── CalendarGrid.tsx # Month & Week calendar grid with keyboard navigation (← / →)
+        │   └── CalendarDayCell.tsx # Minimalist day cell with thin 2px workload indicators
+        ├── day/
+        │   ├── DayWorkspaceModal.tsx # Workspace controller (<180 lines, max 640px)
+        │   ├── DayHeader.tsx    # Day navigation & completion stats (<90 lines)
+        │   ├── TaskList.tsx     # Timed & floating tasks with status checkboxes (<150 lines)
+        │   ├── TaskForm.tsx     # Quick inline task creation form (<120 lines)
+        │   └── TaskDetailView.tsx # Status/priority buttons, markdown notes (<180 lines)
+        ├── markdown/
+        │   └── MarkdownWorkspace.tsx # Notes editor with interactive checkboxes (- [ ])
+        ├── pomodoro/
+        │   └── PomodoroWidget.tsx # Modular Pomodoro widget without blue colors
+        └── common/
+            ├── DayPreviewModal.tsx  # Popover preview on single-click (max 640px)
+            ├── SettingsModal.tsx    # Settings modal (theme, weekends, backup JSON)
+            ├── RolloverAlertModal.tsx # Summary of rolled-over tasks (+1 priority)
+            └── ToastContainer.tsx   # Minimalist notifications stack
 ```
 
 ---

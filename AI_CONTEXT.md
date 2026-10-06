@@ -7,69 +7,52 @@ This document provides a concise architectural overview and navigation map for A
 ## Component Hierarchy & Data Flow
 
 ```text
-[App.tsx] — Root Controller
+[App.tsx] — Composition Root (~120 lines)
  │
- ├── State:
- │    ├── tasks: Task[] (saved in localStorage 'chronos_tasks')
- │    ├── settings: AppSettings (saved in localStorage 'chronos_settings')
- │    ├── currentDate: Date (Calendar view navigation)
- │    ├── activeDateStr: string (Target date for modal views)
- │    ├── toasts: ToastNotification[] (Bottom-right notification queue)
- │    └── isMinimized: boolean (Windows tray simulation)
+ ├── Custom Hooks:
+ │    ├── useSettings()      -> localStorage 'chronos_settings' (merged with DEFAULT_SETTINGS)
+ │    ├── useTasks()         -> localStorage 'chronos_tasks' (CRUD methods)
+ │    ├── useNotifications() -> in-app toasts & browser notification dispatch
+ │    ├── useRollover()      -> overdue detection & +1 priority escalation
+ │    └── usePomodoro()      -> 25/5 timer state, audio and notification triggers
  │
- ├── Header
- │    ├── Brand: "Chronos-Task"
- │    ├── Action: "Перенос долгов (+1 приоритет)" -> runs runRollover()
- │    └── Right cluster: "Синхронизация & Настройки" + Windows Controls (—, ✕)
+ ├── Layout & Views:
+ │    ├── [Sidebar.tsx] (240px Left Rail)
+ │    │    ├── Brand: "Chronos-Task" (Source Serif 4)
+ │    │    ├── Primary Action: "+ Новая задача" (Hotkey: N)
+ │    │    ├── [PomodoroWidget.tsx] (Compact focus timer, no blue colors)
+ │    │    ├── Action: "Перенос долгов (+1)"
+ │    │    └── Bottom Controls: Settings & Theme Switcher (Dark/Light)
+ │    │
+ │    └── [CalendarGrid.tsx] (Center Viewport)
+ │         ├── Month / Week View Mode
+ │         ├── Arrow Navigation (← / → keyboard support)
+ │         └── [CalendarDayCell.tsx]
+ │              ├── Day Number (Source Serif 4)
+ │              ├── Thin 2px Workload Indicator Line (DayWorkload)
+ │              ├── 1 Click -> opens [DayPreviewModal.tsx]
+ │              └── 2 Clicks -> opens [DayWorkspaceModal.tsx]
  │
- ├── View: [CalendarView.tsx]
- │    ├── Month Matrix / Week View
- │    ├── Workload Indicators (0/N tasks, critical flames, completed checkmarks)
- │    ├── Single Click -> opens [DayPreviewModal.tsx]
- │    └── Double Click -> opens [DayWorkspaceModal.tsx]
- │
- ├── Modals & Overlays:
- │    ├── [DayPreviewModal.tsx]   — Compact summary popover with "Открыть полный день" CTA
- │    ├── [DayWorkspaceModal.tsx] — Master-Detail Day Workspace
- │    │    ├── Left (Master):
- │    │    │    ├── Timed Schedule (Sorted HH:MM)
- │    │    │    ├── Floating Tasks
- │    │    │    └── Quick Add Task Form
- │    │    └── Right (Detail):
- │    │         ├── Status Selector (todo / in_progress / done / postponed)
- │    │         ├── Priority Selector (low / medium / high / critical)
- │    │         ├── [PomodoroTimer.tsx] (25m work / 5m break countdown)
- │    │         └── [MarkdownWorkspace.tsx] (Editor + Clickable Checklist Preview)
- │    ├── [SettingsModal.tsx]     — SQLite path, custom weekends, JSON backup/restore
- │    ├── [RolloverAlertModal.tsx]— Rollover report showing old -> escalated priorities
- │    └── [WindowsTraySimulator.tsx] — System tray flyout + Toast notification stack
+ ├── Modals (Max 640px, Internal Scroll, Esc Support):
+ │    ├── [DayPreviewModal.tsx]   — Quick summary popover (<540px)
+ │    ├── [DayWorkspaceModal.tsx] — Master-Detail Day Workspace (<640px, <180 lines)
+ │    │    ├── [DayHeader.tsx]    — Navigation & day stats (<90 lines)
+ │    │    ├── [TaskList.tsx]     — Timed & floating tasks (<150 lines)
+ │    │    ├── [TaskForm.tsx]     — Inline task creator (<120 lines)
+ │    │    └── [TaskDetailView.tsx] — Status, priority, markdown (<180 lines)
+ │    │         └── [MarkdownWorkspace.tsx] — Notes with interactive checkboxes (- [ ])
+ │    ├── [SettingsModal.tsx]     — Theme toggle, weekends, backup JSON, web notice (<560px)
+ │    ├── [RolloverAlertModal.tsx]— Rollover report showing old -> escalated priorities (<500px)
+ │    └── [ToastContainer.tsx]    — Bottom-right minimal toast notifications
 ```
 
 ---
 
 ## Key Invariants for AI Reviewers
 
-1. **Date Serialization:** Always use ISO date string `YYYY-MM-DD` for `Task.date`.
-2. **Priority Ladder:** Escalation order is strictly:
-   `low` -> `medium` -> `high` -> `critical`.
-   Tasks at `critical` stay `critical` with `isEscalated = true`.
-3. **Sound:** Do not add external `.mp3` dependencies. Always use `sound.ts` (`sound.playSuccess()`, `sound.playAlert()`, `sound.playClick()`).
-4. **Offline Local Storage:** Keep all updates client-side; sync is mediated by the user's filesystem (OneDrive / Syncthing) via the file path configured in `SettingsModal.tsx`.
-
----
-
-## Quick Verification Scenarios
-
-* **Scenario 1: Rollover Check**
-  1. Click "Перенос долгов (+1 приоритет)" in the top bar.
-  2. Verify that uncompleted past tasks are moved to today with +1 priority.
-  3. Verify the `RolloverAlertModal` appears with the before/after breakdown.
-* **Scenario 2: Master-Detail Workflow**
-  1. Double click on today's date in the calendar.
-  2. Select "Сделать блины в свободное время".
-  3. Click a checkbox in the Markdown checklist on the right.
-  4. Verify the checkbox toggles state and persists in notes.
-* **Scenario 3: Pomodoro Focus Session**
-  1. Select any task in the Master-Detail view.
-  2. Click "Старт" on the Pomodoro widget.
-  3. Click the skip icon `>>` to advance through work/break cycles and verify audio chime + toast notification.
+1. **Format Invariant:** `localStorage` keys `chronos_tasks` and `chronos_settings` MUST remain backward-compatible.
+2. **Zero Blue Discipline:** No blue colors across accents, hovers, focus rings, links, or selections.
+3. **Design Tokens:** All colors derive from `--color-*` variables in `src/index.css` via Tailwind v4 `@theme`.
+4. **Line Limit:** Component files remain strictly modular (~200 lines max).
+5. **Keyboard Support:** `Esc` closes any modal; `N` creates a task; `←` / `→` navigates calendar.
+6. **Pure Utilities:** Functions in `src/utils/` (`dateUtils`, `workloadUtils`, `priorityUtils`, `sound`) are pure and independent of React.
