@@ -22,6 +22,9 @@
   --color-priority-high: var(--priority-high);
   --color-priority-medium: var(--priority-medium);
   --color-priority-low: var(--priority-low);
+
+  --color-cell-hover: var(--cell-hover-bg);
+  --color-task-chip: var(--task-chip-bg);
 }
 
 :root,
@@ -43,6 +46,9 @@
   --priority-high: #D49B42;
   --priority-medium: #8EB69B;
   --priority-low: #648372;
+
+  --cell-hover-bg: rgba(218, 241, 222, 0.05);
+  --task-chip-bg: rgba(5, 31, 32, 0.6);
 }
 
 .theme-light {
@@ -63,6 +69,26 @@
   --priority-high: #9A6715;
   --priority-medium: #235347;
   --priority-low: #4E6B5C;
+
+  --cell-hover-bg: rgba(35, 83, 71, 0.06);
+  --task-chip-bg: rgba(255, 255, 255, 0.75);
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: rgba(11, 43, 38, 0.55);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(218, 241, 222, 0.08);
+  box-shadow: inset 0 1px 0 rgba(218, 241, 222, 0.06);
+}
+
+.theme-light .glass-panel {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(35, 83, 71, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 @layer base {
@@ -73,6 +99,41 @@
     font-size: 14px;
     line-height: 1.5;
     min-height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Fixed ambient light spots for glassmorphism backdrop blur */
+  body::before {
+    content: "";
+    position: fixed;
+    top: -15vw;
+    left: -15vw;
+    width: 60vw;
+    height: 60vw;
+    max-width: 800px;
+    max-height: 800px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(35, 83, 71, 0.35) 0%, transparent 70%);
+    filter: blur(60px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    bottom: -15vw;
+    right: -15vw;
+    width: 65vw;
+    height: 65vw;
+    max-width: 850px;
+    max-height: 850px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(142, 182, 155, 0.12) 0%, transparent 70%);
+    filter: blur(70px);
+    pointer-events: none;
+    z-index: 0;
   }
 
   .theme-light body,

@@ -97,8 +97,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Top Header: Glassmorphism translucent surface with backdrop blur */}
-      <header className="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-glass)] backdrop-blur-md flex items-center justify-between shrink-0 select-none">
+      {/* Top Header: Seamless within floating glass-panel */}
+      <header className="px-6 py-4 border-b border-[var(--color-border)] bg-transparent flex items-center justify-between shrink-0 select-none">
         {/* Large Month Title + Quiet kicker */}
         <div className="flex items-baseline gap-3">
           <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[var(--color-text-primary)] tracking-tight">
@@ -114,7 +114,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
         {/* Navigation & Controls */}
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center bg-[var(--color-surface-solid)] rounded-xl p-1 border border-[var(--color-border)]">
+          <div className="flex items-center bg-[var(--color-surface)]/60 rounded-xl p-1 border border-[var(--color-border)]">
             <button
               type="button"
               onClick={handlePrev}
@@ -141,7 +141,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           </div>
 
           {/* View mode toggle */}
-          <div className="flex bg-[var(--color-surface-solid)] p-1 rounded-xl border border-[var(--color-border)] text-xs">
+          <div className="flex bg-[var(--color-surface)]/60 p-1 rounded-xl border border-[var(--color-border)] text-xs">
             <button
               type="button"
               onClick={() => {
@@ -174,8 +174,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         </div>
       </header>
 
-      {/* Weekday Names Bar (Clean & opaque) */}
-      <div className="grid grid-cols-7 border-b border-[var(--color-border)] bg-[var(--color-surface-solid)] text-xs font-medium text-[var(--color-text-muted)] select-none shrink-0">
+      {/* Weekday Names Bar (Clean & translucent) */}
+      <div className="grid grid-cols-7 border-b border-[var(--color-border)] bg-transparent text-xs font-medium text-[var(--color-text-muted)] select-none shrink-0">
         {WEEKDAYS_RU.map(w => {
           const isWeekend = customWeekends.includes(w.index);
           return (
@@ -191,9 +191,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         })}
       </div>
 
-      {/* Calendar Grid: Solid, opaque background (#0B2B26) so text is 100% crisp without blur */}
+      {/* Calendar Grid: Transparent cells letting glass-panel backdrop-blur show */}
       {viewMode === 'month' ? (
-        <div className="flex-1 grid grid-cols-7 border-l border-t border-[var(--color-border)] overflow-y-auto bg-[var(--color-surface-solid)]">
+        <div className="flex-1 grid grid-cols-7 overflow-y-auto bg-transparent">
           {monthCells.map(cell => {
             const dateTasks = tasksByDate[cell.dateStr] || [];
             const isWeekend = customWeekends.includes(cell.dayOfWeek);
@@ -217,7 +217,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         </div>
       ) : (
         /* Week View */
-        <div className="flex-1 grid grid-cols-7 border-l border-t border-[var(--color-border)] overflow-y-auto bg-[var(--color-surface-solid)]">
+        <div className="flex-1 grid grid-cols-7 overflow-y-auto bg-transparent">
           {weekDays.map(w => {
             const dateTasks = tasksByDate[w.dateStr] || [];
             const isWeekend = customWeekends.includes(w.dayOfWeek);

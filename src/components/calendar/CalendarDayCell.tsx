@@ -30,9 +30,9 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     <div
       onClick={() => onSelectDay(dateStr)}
       onDoubleClick={() => onOpenFullDay(dateStr)}
-      className={`min-h-[90px] sm:min-h-[110px] p-2 flex flex-col justify-between transition-colors cursor-pointer group relative border-r border-b border-[var(--color-border)] select-none ${
-        isCurrentMonth ? 'bg-[var(--color-surface-solid)]' : 'bg-[var(--color-app-bg)]/50 opacity-40'
-      } hover:bg-[var(--color-surface-hover)] ${
+      className={`min-h-[90px] sm:min-h-[110px] p-2 pb-3.5 flex flex-col justify-between transition-colors cursor-pointer group relative border-r border-b border-[var(--color-border)] select-none bg-transparent ${
+        isCurrentMonth ? '' : 'opacity-35'
+      } hover:bg-[var(--color-cell-hover)] ${
         isToday ? 'ring-1 ring-inset ring-[var(--color-accent)]' : ''
       }`}
     >
@@ -59,7 +59,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
       </div>
 
       {/* Center: Quiet task chips (fully rounded: rounded-full) */}
-      <div className="flex-1 my-1 space-y-1 overflow-hidden">
+      <div className="flex-1 my-1 space-y-1 overflow-hidden pb-1">
         {tasks.slice(0, 2).map(task => {
           const meta = PRIORITY_META[task.priority];
           const isDone = task.status === 'done';
@@ -67,7 +67,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
           return (
             <div
               key={task.id}
-              className={`px-2 py-0.5 rounded-full text-[11px] truncate flex items-center gap-1.5 border border-[var(--color-border)] bg-[var(--color-app-bg)]/80 ${
+              className={`px-2 py-0.5 rounded-full text-[11px] truncate flex items-center gap-1.5 border border-[var(--color-border)] bg-[var(--color-task-chip)] ${
                 isDone ? 'opacity-40 line-through' : 'text-[var(--color-text-primary)]'
               }`}
             >
@@ -92,9 +92,9 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
         )}
       </div>
 
-      {/* Bottom: Thin 2px workload indicator line */}
-      {workload.total > 0 ? (
-        <div className="w-full bg-[var(--color-border)] h-[2px] rounded-full overflow-hidden">
+      {/* Bottom: Thin 2px workload indicator line docked at bottom-0 */}
+      {workload.total > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--color-border)]/40 overflow-hidden">
           <div
             className={`h-full transition-all duration-200 ${
               workload.hasCritical
@@ -106,8 +106,6 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
             style={{ width: `${Math.round((workload.completed / workload.total) * 100)}%` }}
           />
         </div>
-      ) : (
-        <div className="h-[2px]" />
       )}
     </div>
   );

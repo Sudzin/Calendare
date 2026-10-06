@@ -48,12 +48,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [onOpenNewTask]);
 
   return (
-    <aside className="w-16 bg-[var(--color-surface-glass)] backdrop-blur-md border-r border-[var(--color-border)] flex flex-col items-center justify-between py-4 shrink-0 select-none z-20">
+    <aside className="w-16 glass-panel rounded-2xl flex flex-col items-center justify-between py-4 shrink-0 select-none z-20 shadow-xl">
       {/* Top: Logo & New Task */}
       <div className="flex flex-col items-center gap-4 w-full">
         {/* App Logo Mark */}
         <div
-          className="w-10 h-10 rounded-xl bg-[var(--color-surface-solid)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-accent)] font-serif font-semibold text-lg"
+          className="w-10 h-10 rounded-xl bg-[var(--color-surface-hover)]/70 border border-[var(--color-border)] flex items-center justify-center text-[var(--color-accent)] font-serif font-semibold text-lg"
           title="Chronos-Task"
         >
           C
