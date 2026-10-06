@@ -307,7 +307,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-1.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-primary)] font-medium rounded-lg text-xs flex items-center gap-1.5 transition-colors"
+            className="px-4 py-1.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-on-accent)] font-medium rounded-xl text-xs flex items-center gap-1.5 transition-colors"
           >
             {saveSuccess && <Check className="w-3.5 h-3.5" />}
             <span>{saveSuccess ? 'Сохранено' : 'Применить'}</span>

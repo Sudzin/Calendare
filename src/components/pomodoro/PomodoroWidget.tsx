@@ -67,7 +67,7 @@ export const PomodoroWidget: React.FC<PomodoroWidgetProps> = ({
           <button
             type="button"
             onClick={toggle}
-            className="px-2.5 py-1 rounded bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-primary)] text-xs font-medium flex items-center gap-1 transition-colors"
+            className="px-2.5 py-1 rounded bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-on-accent)] text-xs font-medium flex items-center gap-1 transition-colors"
           >
             {isRunning ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 fill-current" />}
             <span>{isRunning ? 'Пауза' : 'Старт'}</span>

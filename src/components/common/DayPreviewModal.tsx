@@ -142,7 +142,7 @@ export const DayPreviewModal: React.FC<DayPreviewModalProps> = ({
           <button
             type="button"
             onClick={() => onOpenFullDay(dateStr)}
-            className="px-4 py-1.5 text-xs font-medium text-[#051F20] bg-[var(--color-accent)] hover:opacity-90 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+            className="px-4 py-1.5 text-xs font-medium text-[var(--color-on-accent)] bg-[var(--color-accent)] hover:opacity-90 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
           >
             <span>Открыть день</span>
             <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />

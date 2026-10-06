@@ -75,7 +75,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         <button
           type="button"
           onClick={onOpenAddForm}
-          className="px-3 py-1 bg-[var(--color-accent)] text-[#051F20] rounded-xl text-xs font-medium flex items-center gap-1 transition-opacity hover:opacity-90"
+          className="px-3 py-1 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-xl text-xs font-medium flex items-center gap-1 transition-opacity hover:opacity-90"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>Задача</span>
@@ -114,7 +114,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                     }}
                     className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                       isDone
-                        ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[#051F20]'
+                        ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-on-accent)]'
                         : 'border-[var(--color-border)] bg-[var(--color-surface-solid)]'
                     }`}
                   >
@@ -172,7 +172,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                     }}
                     className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                       isDone
-                        ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[#051F20]'
+                        ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-on-accent)]'
                         : 'border-[var(--color-border)] bg-[var(--color-surface-solid)]'
                     }`}
                   >

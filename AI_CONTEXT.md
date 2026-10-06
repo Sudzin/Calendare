@@ -17,10 +17,10 @@ This document provides a concise architectural overview and navigation map for A
  │    └── usePomodoro()      -> 25/5 timer state, audio and notification triggers
  │
  ├── Layout & Views:
- │    ├── [Sidebar.tsx] (240px Left Rail)
- │    │    ├── Brand: "Chronos-Task" (Source Serif 4)
- │    │    ├── Primary Action: "+ Новая задача" (Hotkey: N)
- │    │    ├── [PomodoroWidget.tsx] (Compact focus timer, no blue colors)
+ │    ├── [Sidebar.tsx] (~64px Icon Rail)
+ │    │    ├── Brand Mark: "C" (Source Serif 4)
+ │    │    ├── Primary Action: "+" (Hotkey: N)
+ │    │    ├── Active Tab: Calendar / Tasks / Pomodoro
  │    │    ├── Action: "Перенос долгов (+1)"
  │    │    └── Bottom Controls: Settings & Theme Switcher (Dark/Light)
  │    │

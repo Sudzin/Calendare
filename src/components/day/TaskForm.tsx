@@ -108,7 +108,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({ dateStr, onSave, onCancel })
       <div className="flex justify-end pt-1">
         <button
           type="submit"
-          className="px-3 py-1 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-primary)] rounded font-medium text-xs transition-colors"
+          className="px-3 py-1 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-on-accent)] rounded-xl font-medium text-xs transition-colors"
         >
           Создать
         </button>

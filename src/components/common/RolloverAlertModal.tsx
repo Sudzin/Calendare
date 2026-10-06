@@ -99,7 +99,7 @@ export const RolloverAlertModal: React.FC<RolloverAlertModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-primary)] text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+            className="px-4 py-1.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-on-accent)] text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Понятно</span>

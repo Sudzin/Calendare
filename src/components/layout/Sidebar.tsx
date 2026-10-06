@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onOpenNewTask();
           }}
           title="Новая задача (N)"
-          className="w-10 h-10 rounded-xl bg-[var(--color-accent)] text-[#051F20] flex items-center justify-center hover:opacity-90 transition-all duration-150 shadow-xs group relative"
+          className="w-10 h-10 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] flex items-center justify-center hover:opacity-90 transition-all duration-150 shadow-xs group relative"
         >
           <Plus className="w-5 h-5 stroke-[2.5]" />
         </button>

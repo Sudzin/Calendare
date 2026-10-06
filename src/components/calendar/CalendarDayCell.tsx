@@ -31,7 +31,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
       onClick={() => onSelectDay(dateStr)}
       onDoubleClick={() => onOpenFullDay(dateStr)}
       className={`min-h-[90px] sm:min-h-[110px] p-2 flex flex-col justify-between transition-colors cursor-pointer group relative border-r border-b border-[var(--color-border)] select-none ${
-        isCurrentMonth ? 'bg-[var(--color-surface-solid)]' : 'bg-[#051F20]/50 opacity-40'
+        isCurrentMonth ? 'bg-[var(--color-surface-solid)]' : 'bg-[var(--color-app-bg)]/50 opacity-40'
       } hover:bg-[var(--color-surface-hover)] ${
         isToday ? 'ring-1 ring-inset ring-[var(--color-accent)]' : ''
       }`}
@@ -41,7 +41,7 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
         <span
           className={`font-serif text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full ${
             isToday
-              ? 'bg-[var(--color-accent)] text-[#051F20] font-semibold'
+              ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold'
               : isWeekend
               ? 'text-[var(--color-priority-critical)]'
               : 'text-[var(--color-text-primary)]'

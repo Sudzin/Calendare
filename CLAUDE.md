@@ -20,7 +20,7 @@ This guide is designed for Anthropic Claude (Claude Code, Claude Projects, and A
 ## 2. Tech Stack & Commands
 
 * **Framework:** React 19 + TypeScript (Strict mode) + Vite 8
-* **Styling:** Tailwind CSS v4 (`@import "tailwindcss";`), Windows 11 Fluent aesthetic
+* **Styling:** Tailwind CSS v4 (`@import "tailwindcss";`), lightweight dark glassmorphism aesthetic (soft dark-green gradient `#051F20` → `#0B2B26`), Source Serif 4 headings, Inter UI, zero blue colors.
 * **Icons:** `lucide-react`
 * **Audio:** Web Audio API synthesizer (`src/utils/sound.ts`) — zero external audio asset dependencies.
 
@@ -65,7 +65,7 @@ npm run preview  # Preview production build locally
     │   └── initialTasks.ts      # Seed demo tasks
     └── components/
         ├── layout/
-        │   └── Sidebar.tsx      # Left rail (240px: brand, +Новая задача (N), Pomodoro, settings)
+        │   └── Sidebar.tsx      # Left icon rail (~64px: Calendar, Tasks, Pomodoro, Settings)
         ├── calendar/
         │   ├── CalendarGrid.tsx # Month & Week calendar grid with keyboard navigation (← / →)
         │   └── CalendarDayCell.tsx # Minimalist day cell with thin 2px workload indicators
