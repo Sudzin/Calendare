@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Task } from '../../types';
 import { 
-  MONTH_NAMES_RU, WEEKDAYS_RU, getMonthMatrix, getWeekDays, toDateString 
+  MONTH_NAMES_RU, WEEKDAYS_RU, getMonthMatrix, getWeekDays 
 } from '../../utils/dateUtils';
+import { getTodayDate } from '../../utils/date';
 import { calculateDayWorkload } from '../../utils/workloadUtils';
 import { CalendarDayCell } from './CalendarDayCell';
 import { sound } from '../../utils/sound';
@@ -38,7 +39,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const todayStr = toDateString(new Date());
+  const todayStr = getTodayDate();
 
   const todayRemainingCount = useMemo(() => {
     return tasks.filter(t => t.date === todayStr && t.status !== 'done').length;

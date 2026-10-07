@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { formatHumanDate, parseDateString, toDateString } from '../../utils/dateUtils';
+import { formatHumanDate } from '../../utils/dateUtils';
+import { getTodayDate, getDateDaysAgo } from '../../utils/date';
 
 interface DayHeaderProps {
   dateStr: string;
@@ -18,15 +19,11 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
   onClose,
 }) => {
   const handlePrevDay = () => {
-    const d = parseDateString(dateStr);
-    d.setDate(d.getDate() - 1);
-    onChangeDate(toDateString(d));
+    onChangeDate(getDateDaysAgo(dateStr, 1));
   };
 
   const handleNextDay = () => {
-    const d = parseDateString(dateStr);
-    d.setDate(d.getDate() + 1);
-    onChangeDate(toDateString(d));
+    onChangeDate(getDateDaysAgo(dateStr, -1));
   };
 
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -46,7 +43,7 @@ export const DayHeader: React.FC<DayHeaderProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => onChangeDate(toDateString(new Date()))}
+            onClick={() => onChangeDate(getTodayDate())}
             className="px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] rounded transition-colors"
           >
             Сегодня

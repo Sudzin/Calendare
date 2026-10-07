@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, CheckCircle2, Clock, CalendarDays } from 'lucide-react';
 import { Task } from '../../types';
-import { getWeekDays, toDateString } from '../../utils/dateUtils';
+import { getWeekDays } from '../../utils/dateUtils';
+import { getTodayDate } from '../../utils/date';
 import { sound } from '../../utils/sound';
 import { D3CircularProgress } from './D3CircularProgress';
 
@@ -18,7 +19,7 @@ export const WeeklySummaryWidget: React.FC<WeeklySummaryWidgetProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Compute current week information
-  const todayStr = useMemo(() => toDateString(new Date()), []);
+  const todayStr = useMemo(() => getTodayDate(), []);
   const weekDays = useMemo(() => getWeekDays(new Date()), []);
 
   const weekDateSet = useMemo(() => new Set(weekDays.map(d => d.dateStr)), [weekDays]);

@@ -1,17 +1,10 @@
 import { Task } from '../types';
-import { toDateString } from '../utils/dateUtils';
+import { getTodayDate, getDateDaysAgo } from '../utils/date';
 
 export function getInitialTasks(): Task[] {
-  const now = new Date();
-  const todayStr = toDateString(now);
-
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const yesterdayStr = toDateString(yesterday);
-
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  const tomorrowStr = toDateString(tomorrow);
+  const todayStr = getTodayDate();
+  const yesterdayStr = getDateDaysAgo(todayStr, 1);
+  const tomorrowStr = getDateDaysAgo(todayStr, -1);
 
   return [
     // Today's Timed Schedule

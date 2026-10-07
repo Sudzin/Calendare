@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Task } from '../types';
-import { toDateString } from '../utils/dateUtils';
+import { getTodayDate } from '../utils/date';
 import { getNextPriority } from '../utils/priorityUtils';
 import { sound } from '../utils/sound';
 
@@ -20,7 +20,7 @@ export function useRollover(
   const [isRolloverAlertOpen, setIsRolloverAlertOpen] = useState(false);
 
   const runRollover = useCallback((forceOpenModal = true) => {
-    const todayStr = toDateString(new Date());
+    const todayStr = getTodayDate();
     const overdueTasks = tasks.filter(t => t.date < todayStr && t.status !== 'done');
 
     if (overdueTasks.length === 0) {

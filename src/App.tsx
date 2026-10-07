@@ -8,7 +8,7 @@ import { useSettings } from './hooks/useSettings';
 import { useTasks } from './hooks/useTasks';
 import { useNotifications } from './hooks/useNotifications';
 import { useRollover } from './hooks/useRollover';
-import { toDateString } from './utils/dateUtils';
+import { getTodayDate } from './utils/date';
 
 import { Sidebar, ActiveNavTab } from './components/layout/Sidebar';
 import { CalendarGrid } from './components/calendar/CalendarGrid';
@@ -32,7 +32,7 @@ export default function App() {
   } = useRollover(tasks, setAllTasks, pushToast, settings.soundEnabled);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [activeDateStr, setActiveDateStr] = useState<string>(toDateString(new Date()));
+  const [activeDateStr, setActiveDateStr] = useState<string>(getTodayDate());
 
   // Active rail tab: 'calendar' | 'tasks' | 'pomodoro'
   const [activeNavTab, setActiveNavTab] = useState<ActiveNavTab>('calendar');
@@ -46,7 +46,7 @@ export default function App() {
   // Auto-rollover on initial app load if enabled
   useEffect(() => {
     if (settings.autoRollover) {
-      const todayStr = toDateString(new Date());
+      const todayStr = getTodayDate();
       const hasOverdue = tasks.some(t => t.date < todayStr && t.status !== 'done');
       if (hasOverdue) {
         runRollover(false);
@@ -67,7 +67,7 @@ export default function App() {
   };
 
   const handleOpenNewTask = () => {
-    setActiveDateStr(toDateString(new Date()));
+    setActiveDateStr(getTodayDate());
     setIsDayPreviewOpen(false);
     setIsDayWorkspaceOpen(true);
     setActiveNavTab('tasks');
@@ -76,7 +76,7 @@ export default function App() {
   const handleSelectNavTab = (tab: ActiveNavTab) => {
     setActiveNavTab(tab);
     if (tab === 'tasks') {
-      setActiveDateStr(toDateString(new Date()));
+      setActiveDateStr(getTodayDate());
       setIsDayWorkspaceOpen(true);
     } else if (tab === 'pomodoro') {
       setIsPomodoroModalOpen(true);

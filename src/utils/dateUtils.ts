@@ -1,3 +1,13 @@
+import {
+  formatDate,
+  getTodayDate,
+  parseDate,
+  toDateString,
+  parseDateString,
+} from './date';
+
+export * from './date';
+
 export const MONTH_NAMES_RU = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
@@ -18,20 +28,8 @@ export const WEEKDAYS_RU = [
   { index: 0, short: 'Вс', full: 'Воскресенье' },
 ];
 
-export function toDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-export function parseDateString(dateStr: string): Date {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
 export function formatHumanDate(dateStr: string): string {
-  const date = parseDateString(dateStr);
+  const date = parseDate(dateStr);
   const day = date.getDate();
   const month = MONTH_NAMES_GENITIVE_RU[date.getMonth()];
   const year = date.getFullYear();
@@ -49,7 +47,7 @@ export function getMonthMatrix(year: number, month: number): Array<{
 }> {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const todayStr = toDateString(new Date());
+  const todayStr = getTodayDate();
 
   // In RU, week starts on Monday (1). Sunday is 0 -> convert to 7
   let startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
@@ -67,7 +65,7 @@ export function getMonthMatrix(year: number, month: number): Array<{
   for (let i = startOffset - 1; i >= 0; i--) {
     const d = prevMonthLastDay - i;
     const dObj = new Date(year, month - 1, d);
-    const dateStr = toDateString(dObj);
+    const dateStr = formatDate(dObj);
     cells.push({
       dateStr,
       dayNumber: d,
@@ -80,7 +78,7 @@ export function getMonthMatrix(year: number, month: number): Array<{
   // Current month days
   for (let d = 1; d <= lastDay.getDate(); d++) {
     const dObj = new Date(year, month, d);
-    const dateStr = toDateString(dObj);
+    const dateStr = formatDate(dObj);
     cells.push({
       dateStr,
       dayNumber: d,
@@ -98,7 +96,7 @@ export function getMonthMatrix(year: number, month: number): Array<{
 
   for (let d = 1; d <= toFill; d++) {
     const dObj = new Date(year, month + 1, d);
-    const dateStr = toDateString(dObj);
+    const dateStr = formatDate(dObj);
     cells.push({
       dateStr,
       dayNumber: d,
@@ -120,7 +118,7 @@ export function getWeekDays(referenceDate: Date): Array<{
   weekdayShort: string;
 }> {
   const curr = new Date(referenceDate);
-  const todayStr = toDateString(new Date());
+  const todayStr = getTodayDate();
   // Normalize to Monday of this week
   const day = curr.getDay();
   const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
@@ -130,7 +128,7 @@ export function getWeekDays(referenceDate: Date): Array<{
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const dateStr = toDateString(d);
+    const dateStr = formatDate(d);
     const wd = WEEKDAYS_RU.find(w => w.index === d.getDay());
     result.push({
       dateStr,

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, Task, ThemePreset } from '../../types';
 import { WEEKDAYS_RU } from '../../utils/dateUtils';
+import { getTodayDate } from '../../utils/date';
 import { sound } from '../../utils/sound';
 import { validateBackup } from '../../utils/backupValidation';
 
@@ -84,7 +85,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Calendare_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `Calendare_backup_${getTodayDate()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
