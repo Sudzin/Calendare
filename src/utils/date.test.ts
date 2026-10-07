@@ -15,12 +15,7 @@ import {
 } from './date';
 
 describe('Local Date Utility (src/utils/date.ts)', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -49,6 +44,14 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
   });
 
   describe('getTodayDate', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('возвращает локальную дату YYYY-MM-DD независимо от реального времени ПК (fake timers)', () => {
       // Устанавливаем фиксированное системное время: 15 июля 2026 года
       vi.setSystemTime(new Date(2026, 6, 15, 14, 30, 0));
@@ -129,6 +132,14 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
   });
 
   describe('addDays, getYesterdayDate, getTomorrowDate', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('addDays добавляет дни с переходом через границу месяца и года', () => {
       expect(addDays('2026-01-31', 1)).toBe('2026-02-01');
       expect(addDays('2025-12-31', 1)).toBe('2026-01-01');
@@ -162,6 +173,14 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
   });
 
   describe('getCurrentTimestamp', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('возвращает полный ISO 8601 timestamp (UTC) соответствующий системному времени', () => {
       vi.setSystemTime(new Date('2026-10-07T15:30:45.123Z'));
       expect(getCurrentTimestamp()).toBe('2026-10-07T15:30:45.123Z');
@@ -169,6 +188,14 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
   });
 
   describe('getMsUntilNextLocalMidnight', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('обычный день: корректно вычисляет миллисекунды до локальной полуночи с буфером 100 мс', () => {
       // 7 октября 2026 года, 14:00:00 (ровно 10 часов до полуночи)
       vi.setSystemTime(new Date(2026, 9, 7, 14, 0, 0, 0));
