@@ -1,29 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Task } from '../types';
-import { getTodayDate } from '../utils/date';
+import { getTodayDate, getMsUntilNextLocalMidnight } from '../utils/date';
 import { rolloverTasks, EscalationRecord, RolloverResult } from '../utils/rollover';
 import { sound } from '../utils/sound';
 
 export type { EscalationRecord, RolloverResult };
-
-/**
- * Вычисляет количество миллисекунд до следующей локальной полуночи (00:00:00.000).
- * Добавляет небольшой буфер (100 мс), чтобы системные часы при срабатывании таймера
- * гарантированно перешли на новую дату в локальном часовом поясе.
- */
-function getMsUntilNextLocalMidnight(): number {
-  const now = new Date();
-  const nextMidnight = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + 1,
-    0,
-    0,
-    0,
-    0
-  );
-  return Math.max(nextMidnight.getTime() - now.getTime() + 100, 100);
-}
 
 export function useRollover(
   tasks: Task[],

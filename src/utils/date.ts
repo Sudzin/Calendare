@@ -110,6 +110,25 @@ export function getCurrentTimestamp(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Вычисляет количество миллисекунд до следующей локальной полуночи (00:00:00.000).
+ * Использует строго локальные методы Date (getFullYear, getMonth, getDate) без UTC.
+ * Добавляет небольшой буфер (100 мс) и защитный минимальный интервал (минимум 100 мс),
+ * чтобы таймер гарантированно перешёл за полночь и не получил 0 или отрицательное значение.
+ */
+export function getMsUntilNextLocalMidnight(fromDate: Date = new Date()): number {
+  const nextMidnight = new Date(
+    fromDate.getFullYear(),
+    fromDate.getMonth(),
+    fromDate.getDate() + 1,
+    0,
+    0,
+    0,
+    0
+  );
+  return Math.max(nextMidnight.getTime() - fromDate.getTime() + 100, 100);
+}
+
 // Алиасы для совместимости с существующим кодом
 export const toDateString = formatDate;
 export const parseDateString = parseDate;

@@ -11,6 +11,7 @@ import {
   isBeforeDate,
   isAfterDate,
   getCurrentTimestamp,
+  getMsUntilNextLocalMidnight,
 } from './date';
 
 describe('Local Date Utility (src/utils/date.ts)', () => {
@@ -167,6 +168,74 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
     });
   });
 
+  describe('getMsUntilNextLocalMidnight', () => {
+    it('обычный день: корректно вычисляет миллисекунды до локальной полуночи с буфером 100 мс', () => {
+      // 7 октября 2026 года, 14:00:00 (ровно 10 часов до полуночи)
+      vi.setSystemTime(new Date(2026, 9, 7, 14, 0, 0, 0));
+
+      const ms = getMsUntilNextLocalMidnight();
+      const tenHoursAndBuffer = 10 * 60 * 60 * 1000 + 100;
+      expect(ms).toBe(tenHoursAndBuffer);
+    });
+
+    it('время непосредственно перед полуночью: возвращает корректную короткую задержку с буфером', () => {
+      // 7 октября 2026 года, 23:59:59.950 (50 мс до полуночи)
+      vi.setSystemTime(new Date(2026, 9, 7, 23, 59, 59, 950));
+
+      const ms = getMsUntilNextLocalMidnight();
+      expect(ms).toBe(150); // 50 мс + 100 мс буфер
+    });
+
+    it('защитный минимальный интервал: не возвращает 0 или отрицательное значение', () => {
+      // Искусственно передаем время в момент/после полуночи
+      const now = new Date(2026, 9, 8, 0, 0, 0, 0);
+      const ms = getMsUntilNextLocalMidnight(now);
+      expect(ms).toBeGreaterThanOrEqual(100);
+    });
+
+    it('переход месяца: корректно определяет начало следующего месяца (31 октября -> 1 ноября)', () => {
+      // 31 октября 2026 года, 22:00:00 (2 часа до 1 ноября)
+      vi.setSystemTime(new Date(2026, 9, 31, 22, 0, 0, 0));
+
+      const ms = getMsUntilNextLocalMidnight();
+      const twoHoursAndBuffer = 2 * 60 * 60 * 1000 + 100;
+      expect(ms).toBe(twoHoursAndBuffer);
+
+      // Проверяем перемотку по времени
+      vi.advanceTimersByTime(ms);
+      expect(getTodayDate()).toBe('2026-11-01');
+    });
+
+    it('переход года: корректно определяет начало нового года (31 декабря -> 1 января)', () => {
+      // 31 декабря 2026 года, 23:00:00 (1 час до 1 января 2027)
+      vi.setSystemTime(new Date(2026, 11, 31, 23, 0, 0, 0));
+
+      const ms = getMsUntilNextLocalMidnight();
+      const oneHourAndBuffer = 1 * 60 * 60 * 1000 + 100;
+      expect(ms).toBe(oneHourAndBuffer);
+
+      // Проверяем перемотку по времени
+      vi.advanceTimersByTime(ms);
+      expect(getTodayDate()).toBe('2027-01-01');
+    });
+
+    it('расчёт использует именно локальную полночь', () => {
+      // 7 октября 2026 года, 10:15:30.000
+      vi.setSystemTime(new Date(2026, 9, 7, 10, 15, 30, 0));
+
+      const ms = getMsUntilNextLocalMidnight();
+      vi.advanceTimersByTime(ms);
+
+      // После перемотки часы должны показывать ровно локальное начало следующего дня + 100 мс
+      const advancedDate = new Date();
+      expect(advancedDate.getHours()).toBe(0);
+      expect(advancedDate.getMinutes()).toBe(0);
+      expect(advancedDate.getSeconds()).toBe(0);
+      expect(advancedDate.getMilliseconds()).toBe(100);
+      expect(getTodayDate()).toBe('2026-10-08');
+    });
+  });
+
   describe('Отсутствие использования toISOString() для локальной даты', () => {
     it('ни одна из функций date utility не вызывает toISOString()', () => {
       const isoSpy = vi.spyOn(Date.prototype, 'toISOString');
@@ -180,6 +249,7 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
       addDays('2026-10-07', 2);
       getYesterdayDate();
       getTomorrowDate();
+      getMsUntilNextLocalMidnight();
 
       expect(isoSpy).not.toHaveBeenCalled();
     });
