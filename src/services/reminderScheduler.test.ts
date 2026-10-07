@@ -252,4 +252,36 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     // Повторного вызова быть не должно
     expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
   });
+
+  it('9. напоминание через 40 дней не вызывает цикла перепланирования (задержка ограничена 2_147_483_647, число вызовов setTimeout ограничено)', () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+    // Напоминание через 40 дней (16 ноября 2026, 09:30)
+    const taskIn40Days = createSampleTask({
+      id: 'task-40-days',
+      date: '2026-11-16',
+      startTime: '10:00',
+      reminderTime: '09:30',
+    });
+
+    scheduler.start(() => [taskIn40Days]);
+
+    // Таймер должен быть выставлен с задержкой не более 2_147_483_647 ms
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 2_147_483_647);
+
+    // Продвигаем время на 25 дней (~2.16 млрд мс)
+    vi.advanceTimersByTime(25 * 24 * 60 * 60 * 1000);
+
+    // Первый таймер истёк и запланировал остаток времени (~15 дней)
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+
+    // Продвигаем оставшиеся 16 дней
+    vi.advanceTimersByTime(16 * 24 * 60 * 60 * 1000);
+
+    // Напоминание успешно сработало, количество вызовов setTimeout строго ограничено (не зациклилось)
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+    expect(setTimeoutSpy.mock.calls.length).toBeLessThanOrEqual(3);
+  });
 });

@@ -221,6 +221,7 @@ describe('Валидация резервной копии (backupValidation)', 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('imported-task');
 
+      TaskRepository.saveAll(result);
       const allInStore = TaskRepository.getAll();
       expect(allInStore).toHaveLength(1);
       expect(allInStore[0].id).toBe('imported-task');

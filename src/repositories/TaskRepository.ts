@@ -10,21 +10,35 @@ export const TASK_STORAGE_KEY = 'chronos_tasks';
  */
 export type UpdateTaskInput = (Omit<Task, 'updatedAt'> & Partial<Pick<Task, 'updatedAt'>>) | (Partial<Task> & { id: string });
 
-/**
- * Генерация уникального идентификатора задачи с использованием standard Web Crypto API.
- */
-export function generateTaskId(): string {
-  return crypto.randomUUID();
-}
-
 export class TaskRepository {
   static readonly STORAGE_KEY = TASK_STORAGE_KEY;
 
   /**
-   * Генерация уникального ID для задачи.
+   * Базовая валидация структуры задачи для фильтрации повреждённых элементов в хранилище.
+   */
+  static isValidBasicTask(item: unknown): item is Task {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+      return false;
+    }
+    const candidate = item as Record<string, unknown>;
+    return (
+      typeof candidate.id === 'string' &&
+      candidate.id.trim() !== '' &&
+      typeof candidate.title === 'string' &&
+      typeof candidate.date === 'string' &&
+      candidate.date.trim() !== '' &&
+      typeof candidate.status === 'string' &&
+      candidate.status.trim() !== '' &&
+      typeof candidate.priority === 'string' &&
+      candidate.priority.trim() !== ''
+    );
+  }
+
+  /**
+   * Генерация уникального идентификатора задачи с использованием standard Web Crypto API.
    */
   static generateId(): string {
-    return generateTaskId();
+    return crypto.randomUUID();
   }
 
   /**
@@ -37,29 +51,40 @@ export class TaskRepository {
       }
       const raw = localStorage.getItem(TaskRepository.STORAGE_KEY);
       if (raw !== null) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return parsed;
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(TaskRepository.isValidBasicTask);
+          }
+          // Не-массив — сохраняем поврежденные сырые данные с меткой времени
+          const corruptKey = `chronos_tasks_corrupt_${getCurrentTimestamp()}`;
+          localStorage.setItem(corruptKey, raw);
+          return [];
+        } catch (e) {
+          console.error('Failed to parse stored tasks:', e);
+          const corruptKey = `chronos_tasks_corrupt_${getCurrentTimestamp()}`;
+          localStorage.setItem(corruptKey, raw);
+          return [];
         }
       }
     } catch (e) {
-      console.error('Failed to parse stored tasks:', e);
+      console.error('Failed to access stored tasks:', e);
     }
     return [];
   }
 
   /**
-   * Получение задачи по ID.
+   * Получение задачи по ID из текущего хранилища.
    */
   static getById(id: string): Task | undefined {
     return TaskRepository.getAll().find(t => t.id === id);
   }
 
   /**
-   * Создание новой задачи и сохранение в хранилище.
+   * Создание новой задачи (без самостоятельной записи в хранилище).
    */
   static create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task {
-    const id = taskData.id ?? generateTaskId();
+    const id = taskData.id ?? TaskRepository.generateId();
     const now = getCurrentTimestamp();
     const newTask: Task = {
       ...taskData,
@@ -68,47 +93,43 @@ export class TaskRepository {
       updatedAt: taskData.updatedAt ?? now,
     } as Task;
 
-    const currentTasks = TaskRepository.getAll();
-    const updatedTasks = [newTask, ...currentTasks.filter(t => t.id !== id)];
-    TaskRepository.saveAll(updatedTasks);
     return newTask;
   }
 
   /**
-   * Обновление существующей задачи в хранилище.
+   * Обновление задачи (без самостоятельной записи в хранилище).
    * Поле `updatedAt` автоматически устанавливается в текущее время (ISO-строка).
-   * Выбрасывает ошибку, если задача с указанным ID не найдена.
    */
-  static update(updated: UpdateTaskInput): Task {
-    const currentTasks = TaskRepository.getAll();
-    const existingTask = currentTasks.find(t => t.id === updated.id);
+  static update(updated: UpdateTaskInput, existing?: Task): Task {
+    const existingTask = existing ?? TaskRepository.getById(updated.id);
 
     if (!existingTask) {
       throw new Error(`Task not found: ${updated.id}`);
     }
 
     const now = getCurrentTimestamp();
-    const updatedTaskResult: Task = {
-      ...existingTask,
-      ...updated,
-      updatedAt: now,
-    };
 
-    const updatedTasks = currentTasks.map(t =>
-      t.id === updated.id ? updatedTaskResult : t
+    // Игнорируем поля со значением undefined при слиянии
+    const definedUpdates = Object.fromEntries(
+      Object.entries(updated).filter(([_, value]) => value !== undefined)
     );
 
-    TaskRepository.saveAll(updatedTasks);
+    const updatedTaskResult: Task = {
+      ...existingTask,
+      ...definedUpdates,
+      id: existingTask.id,
+      updatedAt: now,
+    } as Task;
+
     return updatedTaskResult;
   }
 
   /**
-   * Удаление задачи по ID из хранилища.
+   * Удаление задачи по ID из списка (без самостоятельной записи в хранилище).
    */
-  static delete(taskId: string): void {
-    const currentTasks = TaskRepository.getAll();
-    const updatedTasks = currentTasks.filter(t => t.id !== taskId);
-    TaskRepository.saveAll(updatedTasks);
+  static delete(taskId: string, tasks?: Task[]): Task[] {
+    const currentTasks = tasks ?? TaskRepository.getAll();
+    return currentTasks.filter(t => t.id !== taskId);
   }
 
   /**
@@ -125,26 +146,12 @@ export class TaskRepository {
   }
 
   /**
-   * Безопасный импорт задач из объекта резервной копии.
-   * Валидирует структуру и каждую задачу перед записью.
-   * Если валидация не прошла — выбрасывает исключение, не изменяя существующие данные.
+   * Безопасный импорт задач из объекта резервной копии (валидация без самостоятельной записи в хранилище).
    */
   static importFromBackup(data: unknown): Task[] {
     const validated = validateBackup(data);
-    TaskRepository.saveAll(validated.tasks);
     return validated.tasks;
   }
-
-  // Экземплярные методы для работы через объект
-  generateId(): string { return generateTaskId(); }
-  getAll(): Task[] { return TaskRepository.getAll(); }
-  getById(id: string): Task | undefined { return TaskRepository.getById(id); }
-  create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
-  update(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
-  delete(taskId: string): void { TaskRepository.delete(taskId); }
-  saveAll(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
-  importFromBackup(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
 }
 
-export const taskRepository = new TaskRepository();
 export default TaskRepository;

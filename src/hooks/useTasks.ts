@@ -7,6 +7,7 @@ export function useTasks() {
     return TaskRepository.getAll();
   });
 
+  // Единственный писатель в localStorage — useEffect по tasks
   useEffect(() => {
     TaskRepository.saveAll(tasks);
   }, [tasks]);
@@ -18,18 +19,20 @@ export function useTasks() {
   }, []);
 
   const updateTask = useCallback((updated: UpdateTaskInput): Task => {
-    const updatedTask = TaskRepository.update(updated);
-    setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t)));
-    return updatedTask;
+    let resultTask: Task;
+    setTasks(prev => {
+      const existing = prev.find(t => t.id === updated.id);
+      resultTask = TaskRepository.update(updated, existing);
+      return prev.map(t => (t.id === resultTask.id ? resultTask : t));
+    });
+    return resultTask!;
   }, []);
 
   const deleteTask = useCallback((taskId: string) => {
-    TaskRepository.delete(taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }, []);
 
   const setAllTasks = useCallback((newTasks: Task[]) => {
-    TaskRepository.saveAll(newTasks);
     setTasks(newTasks);
   }, []);
 

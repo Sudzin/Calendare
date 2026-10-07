@@ -140,7 +140,7 @@ export class ReminderScheduler {
     // Сортируем по времени наступления
     upcoming.sort((a, b) => a.timeMs - b.timeMs);
     const earliestTime = upcoming[0].timeMs;
-    const delay = Math.max(0, earliestTime - now);
+    const delay = Math.min(Math.max(0, earliestTime - now), 2_147_483_647);
 
     this.timerId = setTimeout(() => {
       this.timerId = null;

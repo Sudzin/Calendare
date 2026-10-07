@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { TaskRepository, taskRepository, TASK_STORAGE_KEY, generateTaskId } from './TaskRepository';
+import { TaskRepository, TASK_STORAGE_KEY } from './TaskRepository';
 import { Task } from '../types';
 
 class LocalStorageMock implements Storage {
@@ -67,11 +67,11 @@ describe('TaskRepository', () => {
       expect(tasks).toEqual([]);
     });
 
-    it('контракт жизненного цикла: пустое хранилище возвращает [], после create задача появляется, после удаления последней задачи снова []', () => {
+    it('контракт жизненного цикла: пустое хранилище возвращает [], create не пишет в хранилище сам, saveAll сохраняет', () => {
       // 1. При первом запуске (storage пустой) возвращается [] без автоматических demo-задач
       expect(TaskRepository.getAll()).toEqual([]);
 
-      // 2. После create() созданная задача появляется в хранилище
+      // 2. create() создаёт объект задачи, но репозиторий не пишет в хранилище сам
       const created = TaskRepository.create({
         title: 'Первая задача пользователя',
         type: 'floating',
@@ -82,13 +82,17 @@ describe('TaskRepository', () => {
         pomodoroCount: 0,
       });
 
-      const tasksAfterCreate = TaskRepository.getAll();
-      expect(tasksAfterCreate).toHaveLength(1);
-      expect(tasksAfterCreate[0].id).toBe(created.id);
-      expect(tasksAfterCreate[0].title).toBe('Первая задача пользователя');
+      expect(TaskRepository.getAll()).toEqual([]);
 
-      // 3. После удаления последней задачи хранилище снова возвращает []
-      TaskRepository.delete(created.id);
+      // 3. После явного saveAll задача появляется в хранилище
+      TaskRepository.saveAll([created]);
+      const tasksAfterSave = TaskRepository.getAll();
+      expect(tasksAfterSave).toHaveLength(1);
+      expect(tasksAfterSave[0].id).toBe(created.id);
+      expect(tasksAfterSave[0].title).toBe('Первая задача пользователя');
+
+      // 4. После сохранения пустого массива хранилище снова возвращает []
+      TaskRepository.saveAll([]);
       expect(TaskRepository.getAll()).toEqual([]);
     });
 
@@ -102,10 +106,56 @@ describe('TaskRepository', () => {
       expect(tasks[0].title).toBe(task.title);
     });
 
-    it('возвращает пустой массив при некорректном JSON в хранилище без падения', () => {
-      mockStorage.setItem(TASK_STORAGE_KEY, '{invalid-json');
+    it('при синтаксической ошибке JSON сохраняет сырую строку в chronos_tasks_corrupt_<ISO> и возвращает []', () => {
+      const corruptRaw = '{invalid-json, not closed';
+      mockStorage.setItem(TASK_STORAGE_KEY, corruptRaw);
+
       const tasks = TaskRepository.getAll();
       expect(tasks).toEqual([]);
+
+      // Проверяем, что в localStorage появился ключ с префиксом chronos_tasks_corrupt_
+      const allKeys = Array.from({ length: mockStorage.length }, (_, i) => mockStorage.key(i)!);
+      const corruptKey = allKeys.find(k => k.startsWith('chronos_tasks_corrupt_'));
+      expect(corruptKey).toBeDefined();
+      expect(mockStorage.getItem(corruptKey!)).toBe(corruptRaw);
+    });
+
+    it('при валидном JSON, но не-массиве сохраняет сырую строку в chronos_tasks_corrupt_<ISO> и возвращает []', () => {
+      const notAnArrayRaw = JSON.stringify({ error: 'not an array', count: 42 });
+      mockStorage.setItem(TASK_STORAGE_KEY, notAnArrayRaw);
+
+      const tasks = TaskRepository.getAll();
+      expect(tasks).toEqual([]);
+
+      const allKeys = Array.from({ length: mockStorage.length }, (_, i) => mockStorage.key(i)!);
+      const corruptKey = allKeys.find(k => k.startsWith('chronos_tasks_corrupt_'));
+      expect(corruptKey).toBeDefined();
+      expect(mockStorage.getItem(corruptKey!)).toBe(notAnArrayRaw);
+    });
+
+    it('фильтрует элементы массива, не прошедшие базовую проверку (id, title, date, status, priority)', () => {
+      const validTask1 = createSampleTask({ id: 'valid-1', title: 'Задача 1' });
+      const validTask2 = createSampleTask({ id: 'valid-2', title: 'Задача 2' });
+
+      const mixedData = [
+        validTask1,
+        null,
+        'строка вместо задачи',
+        12345,
+        {},
+        { id: '', title: 'Нет ID', date: '2026-10-07', status: 'todo', priority: 'low' },
+        { id: 'bad-1', date: '2026-10-07', status: 'todo', priority: 'low' }, // нет title
+        { id: 'bad-2', title: 'Нет даты', status: 'todo', priority: 'low' }, // нет date
+        { id: 'bad-3', title: 'Нет статуса', date: '2026-10-07', priority: 'low' }, // нет status
+        { id: 'bad-4', title: 'Нет приоритета', date: '2026-10-07', status: 'todo' }, // нет priority
+        validTask2,
+      ];
+
+      mockStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(mixedData));
+
+      const tasks = TaskRepository.getAll();
+      expect(tasks).toHaveLength(2);
+      expect(tasks.map(t => t.id)).toEqual(['valid-1', 'valid-2']);
     });
 
     it('корректно работает с несколькими задачами', () => {
@@ -250,9 +300,9 @@ describe('TaskRepository', () => {
       }
     });
 
-    it('generateTaskId генерирует валидные и уникальные UUID', () => {
-      const id1 = generateTaskId();
-      const id2 = generateTaskId();
+    it('TaskRepository.generateId генерирует валидные и уникальные UUID', () => {
+      const id1 = TaskRepository.generateId();
+      const id2 = TaskRepository.generateId();
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
       expect(id1).toMatch(uuidRegex);
@@ -260,9 +310,9 @@ describe('TaskRepository', () => {
       expect(id1).not.toBe(id2);
     });
 
-    it('после создания задача появляется в getAll()', () => {
+    it('create не пишет в хранилище сам (getAll остаётся пустым)', () => {
       const newTask = TaskRepository.create({
-        title: 'Задача для проверки getAll',
+        title: 'Задача для проверки create',
         type: 'timed',
         date: '2026-10-07',
         startTime: '10:00',
@@ -273,13 +323,11 @@ describe('TaskRepository', () => {
         pomodoroCount: 0,
       });
 
-      const allTasks = TaskRepository.getAll();
-      expect(allTasks).toHaveLength(1);
-      expect(allTasks[0].id).toBe(newTask.id);
-      expect(allTasks[0].title).toBe('Задача для проверки getAll');
+      expect(newTask.id).toBeDefined();
+      expect(TaskRepository.getAll()).toEqual([]);
     });
 
-    it('существующие задачи не удаляются при создании новой', () => {
+    it('существующие задачи в хранилище не затрагиваются при create', () => {
       const existingTask1 = createSampleTask({ id: 'task-1', title: 'Существующая 1' });
       const existingTask2 = createSampleTask({ id: 'task-2', title: 'Существующая 2' });
       TaskRepository.saveAll([existingTask1, existingTask2]);
@@ -294,16 +342,15 @@ describe('TaskRepository', () => {
         pomodoroCount: 0,
       });
 
+      expect(created.id).toBeDefined();
       const allTasks = TaskRepository.getAll();
-      expect(allTasks).toHaveLength(3);
-      expect(allTasks.some(t => t.id === existingTask1.id)).toBe(true);
-      expect(allTasks.some(t => t.id === existingTask2.id)).toBe(true);
-      expect(allTasks.some(t => t.id === created.id)).toBe(true);
+      expect(allTasks).toHaveLength(2);
+      expect(allTasks.map(t => t.id)).toEqual(['task-1', 'task-2']);
     });
   });
 
   describe('4. Обновление (update)', () => {
-    it('изменяет существующую задачу', () => {
+    it('изменяет существующую задачу и не пишет в хранилище сам', () => {
       const task = createSampleTask({ id: 'task-edit', title: 'До изменения', status: 'todo' });
       TaskRepository.saveAll([task]);
 
@@ -316,24 +363,23 @@ describe('TaskRepository', () => {
       expect(updated.title).toBe('После изменения');
       expect(updated.status).toBe('done');
 
+      // Репозиторий не пишет в хранилище сам — в хранилище остаётся прежнее состояние
       const found = TaskRepository.getById('task-edit');
-      expect(found?.title).toBe('После изменения');
-      expect(found?.status).toBe('done');
+      expect(found?.title).toBe('До изменения');
+      expect(found?.status).toBe('todo');
     });
 
-    it('не создаёт неожиданную дубликатную задачу', () => {
+    it('возвращает обновленный объект с тем же ID', () => {
       const task = createSampleTask({ id: 'task-dup-check', title: 'Исходная' });
       TaskRepository.saveAll([task]);
 
-      TaskRepository.update({
+      const updated = TaskRepository.update({
         ...task,
         title: 'Обновленная',
       });
 
-      const allTasks = TaskRepository.getAll();
-      expect(allTasks).toHaveLength(1);
-      expect(allTasks[0].id).toBe('task-dup-check');
-      expect(allTasks[0].title).toBe('Обновленная');
+      expect(updated.id).toBe('task-dup-check');
+      expect(updated.title).toBe('Обновленная');
     });
 
     it('остальные задачи остаются без изменений', () => {
@@ -341,11 +387,12 @@ describe('TaskRepository', () => {
       const task2 = createSampleTask({ id: 'task-2', title: 'Задача 2', priority: 'low' });
       TaskRepository.saveAll([task1, task2]);
 
-      TaskRepository.update({
+      const updated = TaskRepository.update({
         ...task1,
         title: 'Задача 1 изменена',
       });
 
+      expect(updated.title).toBe('Задача 1 изменена');
       const allTasks = TaskRepository.getAll();
       expect(allTasks).toHaveLength(2);
 
@@ -367,11 +414,6 @@ describe('TaskRepository', () => {
 
       expect(updated.updatedAt).not.toBe(oldUpdatedAt);
       expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(new Date(oldUpdatedAt).getTime());
-
-      // Проверяем, что в репозитории также сохранилось новое значение
-      const stored = TaskRepository.getById('task-time-check');
-      expect(stored?.updatedAt).toBe(updated.updatedAt);
-      expect(stored?.updatedAt).not.toBe(oldUpdatedAt);
     });
 
     it('не требует передачи updatedAt от вызывающего кода (updatedAt обновляется автоматически)', () => {
@@ -406,11 +448,36 @@ describe('TaskRepository', () => {
       expect(updated.title).toBe('Старый заголовок'); // сохранил прежнее поле
       expect(updated.status).toBe('done');
       expect(updated.updatedAt).toBeDefined();
+    });
 
-      const stored = TaskRepository.getById('task-partial');
-      expect(stored?.title).toBe('Старый заголовок');
-      expect(stored?.status).toBe('done');
-      expect(stored?.updatedAt).toBe(updated.updatedAt);
+    it('игнорирует поля со значением undefined при слиянии', () => {
+      const task = createSampleTask({
+        id: 'task-undefined-check',
+        title: 'Исходный заголовок',
+        notes: 'Исходные заметки',
+        priority: 'high',
+        status: 'todo',
+        startTime: '10:00',
+        endTime: '11:00',
+      });
+      TaskRepository.saveAll([task]);
+
+      const updated = TaskRepository.update({
+        id: 'task-undefined-check',
+        title: 'Обновленный заголовок',
+        notes: undefined,
+        startTime: undefined,
+        status: undefined,
+      });
+
+      expect(updated.id).toBe('task-undefined-check');
+      expect(updated.title).toBe('Обновленный заголовок');
+      // Поля со значением undefined были проигнорированы и сохранили исходные значения
+      expect(updated.notes).toBe('Исходные заметки');
+      expect(updated.startTime).toBe('10:00');
+      expect(updated.endTime).toBe('11:00');
+      expect(updated.status).toBe('todo');
+      expect(updated.priority).toBe('high');
     });
 
     it('выбрасывает ошибку при попытке обновить несуществующую задачу и не меняет хранилище', () => {
@@ -434,41 +501,30 @@ describe('TaskRepository', () => {
   });
 
   describe('5. Удаление (delete)', () => {
-    it('удаляет нужную задачу', () => {
-      const task = createSampleTask({ id: 'task-to-delete' });
-      TaskRepository.saveAll([task]);
+    it('удаляет нужную задачу из списка', () => {
+      const task1 = createSampleTask({ id: 'task-to-delete' });
+      const task2 = createSampleTask({ id: 'task-keep' });
 
-      TaskRepository.delete('task-to-delete');
-
-      expect(TaskRepository.getById('task-to-delete')).toBeUndefined();
-      expect(TaskRepository.getAll()).toEqual([]);
+      const filtered = TaskRepository.delete('task-to-delete', [task1, task2]);
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('task-keep');
     });
 
     it('остальные задачи остаются после удаления', () => {
       const task1 = createSampleTask({ id: 'task-1', title: 'Задача 1' });
       const task2 = createSampleTask({ id: 'task-2', title: 'Задача 2' });
       const task3 = createSampleTask({ id: 'task-3', title: 'Задача 3' });
-      TaskRepository.saveAll([task1, task2, task3]);
 
-      TaskRepository.delete('task-2');
-
-      const allTasks = TaskRepository.getAll();
-      expect(allTasks).toHaveLength(2);
-      expect(allTasks.map(t => t.id)).toEqual(['task-1', 'task-3']);
-      expect(TaskRepository.getById('task-2')).toBeUndefined();
+      const filtered = TaskRepository.delete('task-2', [task1, task2, task3]);
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(t => t.id)).toEqual(['task-1', 'task-3']);
     });
 
-    it('удаление неизвестного ID не ломает repository', () => {
+    it('удаление неизвестного ID не ломает список', () => {
       const task1 = createSampleTask({ id: 'task-1', title: 'Задача 1' });
-      TaskRepository.saveAll([task1]);
-
-      expect(() => {
-        TaskRepository.delete('non-existent-id');
-      }).not.toThrow();
-
-      const allTasks = TaskRepository.getAll();
-      expect(allTasks).toHaveLength(1);
-      expect(allTasks[0].id).toBe('task-1');
+      const filtered = TaskRepository.delete('non-existent-id', [task1]);
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('task-1');
     });
   });
 
@@ -496,38 +552,6 @@ describe('TaskRepository', () => {
       const raw = mockStorage.getItem(TASK_STORAGE_KEY);
       expect(raw).toBe('[]');
       expect(TaskRepository.getAll()).toEqual([]);
-    });
-  });
-
-  describe('7. Экземплярные методы (taskRepository instance)', () => {
-    it('методы экземпляра дублируют статическое API', () => {
-      expect(taskRepository.getAll()).toEqual([]);
-
-      const created = taskRepository.create({
-        title: 'Создано через экземпляр',
-        type: 'floating',
-        date: '2026-10-07',
-        priority: 'high',
-        status: 'todo',
-        notes: '',
-        pomodoroCount: 0,
-      });
-
-      expect(taskRepository.getById(created.id)).toBeDefined();
-      expect(taskRepository.getAll()).toHaveLength(1);
-
-      taskRepository.update({ ...created, title: 'Обновлено через экземпляр' });
-      expect(taskRepository.getById(created.id)?.title).toBe('Обновлено через экземпляр');
-
-      taskRepository.delete(created.id);
-      expect(taskRepository.getAll()).toEqual([]);
-
-      taskRepository.saveAll([created]);
-      expect(taskRepository.getAll()).toHaveLength(1);
-
-      const imported = taskRepository.importFromBackup({ tasks: [created] });
-      expect(imported).toHaveLength(1);
-      expect(taskRepository.getAll()).toHaveLength(1);
     });
   });
 });
