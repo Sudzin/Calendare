@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TaskRepository, taskRepository, TASK_STORAGE_KEY } from './TaskRepository';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { TaskRepository, taskRepository, TASK_STORAGE_KEY, generateTaskId } from './TaskRepository';
 import { Task } from '../types';
 
 class LocalStorageMock implements Storage {
@@ -134,9 +134,87 @@ describe('TaskRepository', () => {
 
       expect(newTask).toBeDefined();
       expect(newTask.id).toBeDefined();
+      expect(typeof newTask.id).toBe('string');
+      expect(newTask.id.length).toBeGreaterThan(0);
+      expect(newTask.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
       expect(newTask.title).toBe('Новая задача');
       expect(newTask.createdAt).toBeDefined();
       expect(newTask.updatedAt).toBeDefined();
+    });
+
+    it('два последовательно созданных объекта получают разные ID', () => {
+      const task1 = TaskRepository.create({
+        title: 'Первая задача',
+        type: 'floating',
+        date: '2026-10-07',
+        priority: 'medium',
+        status: 'todo',
+        notes: '',
+        pomodoroCount: 0,
+      });
+
+      const task2 = TaskRepository.create({
+        title: 'Вторая задача',
+        type: 'floating',
+        date: '2026-10-07',
+        priority: 'medium',
+        status: 'todo',
+        notes: '',
+        pomodoroCount: 0,
+      });
+
+      expect(task1.id).toBeDefined();
+      expect(task2.id).toBeDefined();
+      expect(task1.id).not.toBe(task2.id);
+    });
+
+    it('ID не зависит от времени выполнения (уникальность при фиксированном системном времени)', () => {
+      const fixedTimestamp = 1700000000000;
+      const originalDateNow = Date.now;
+
+      try {
+        // Замораживаем Date.now на фиксированном миллисекундном значении
+        Date.now = () => fixedTimestamp;
+
+        const taskA = TaskRepository.create({
+          title: 'Задача в фиксированное время A',
+          type: 'floating',
+          date: '2026-10-07',
+          priority: 'low',
+          status: 'todo',
+          notes: '',
+          pomodoroCount: 0,
+        });
+
+        const taskB = TaskRepository.create({
+          title: 'Задача в фиксированное время B',
+          type: 'floating',
+          date: '2026-10-07',
+          priority: 'low',
+          status: 'todo',
+          notes: '',
+          pomodoroCount: 0,
+        });
+
+        // Даже если системное время зафиксировано, ID генерируются через crypto.randomUUID()
+        expect(taskA.id).not.toBe(taskB.id);
+        expect(taskA.id).not.toContain(String(fixedTimestamp));
+        expect(taskB.id).not.toContain(String(fixedTimestamp));
+        expect(taskA.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        expect(taskB.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      } finally {
+        Date.now = originalDateNow;
+      }
+    });
+
+    it('generateTaskId генерирует валидные и уникальные UUID', () => {
+      const id1 = generateTaskId();
+      const id2 = generateTaskId();
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      expect(id1).toMatch(uuidRegex);
+      expect(id2).toMatch(uuidRegex);
+      expect(id1).not.toBe(id2);
     });
 
     it('после создания задача появляется в getAll()', () => {
@@ -230,6 +308,66 @@ describe('TaskRepository', () => {
 
       const unchangedTask2 = TaskRepository.getById('task-2');
       expect(unchangedTask2).toEqual(task2);
+    });
+
+    it('автоматически обновляет updatedAt при вызове update, даже если передано старое значение', () => {
+      const oldUpdatedAt = '2020-01-01T00:00:00.000Z';
+      const task = createSampleTask({ id: 'task-time-check', updatedAt: oldUpdatedAt });
+      TaskRepository.saveAll([task]);
+
+      // Вызывающий код передаёт старый updatedAt
+      const updated = TaskRepository.update({
+        ...task,
+        title: 'Обновленный заголовок',
+        updatedAt: oldUpdatedAt,
+      });
+
+      expect(updated.updatedAt).not.toBe(oldUpdatedAt);
+      expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(new Date(oldUpdatedAt).getTime());
+
+      // Проверяем, что в репозитории также сохранилось новое значение
+      const stored = TaskRepository.getById('task-time-check');
+      expect(stored?.updatedAt).toBe(updated.updatedAt);
+      expect(stored?.updatedAt).not.toBe(oldUpdatedAt);
+    });
+
+    it('не требует передачи updatedAt от вызывающего кода (updatedAt обновляется автоматически)', () => {
+      const originalTime = '2025-05-01T12:00:00.000Z';
+      const task = createSampleTask({ id: 'task-no-updated-at', updatedAt: originalTime });
+      TaskRepository.saveAll([task]);
+
+      // Удаляем updatedAt из переданного объекта (проверка типов TypeScript и runtime)
+      const { updatedAt: _removed, ...taskWithoutUpdatedAt } = task;
+
+      const updated = TaskRepository.update({
+        ...taskWithoutUpdatedAt,
+        title: 'Задача без ручного updatedAt',
+      });
+
+      expect(updated.updatedAt).toBeDefined();
+      expect(typeof updated.updatedAt).toBe('string');
+      expect(updated.updatedAt).not.toBe(originalTime);
+      expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(new Date(originalTime).getTime());
+    });
+
+    it('поддерживает частичное обновление по ID с автоматической установкой updatedAt', () => {
+      const task = createSampleTask({ id: 'task-partial', title: 'Старый заголовок', status: 'todo' });
+      TaskRepository.saveAll([task]);
+
+      const updated = TaskRepository.update({
+        id: 'task-partial',
+        status: 'done',
+      });
+
+      expect(updated.id).toBe('task-partial');
+      expect(updated.title).toBe('Старый заголовок'); // сохранил прежнее поле
+      expect(updated.status).toBe('done');
+      expect(updated.updatedAt).toBeDefined();
+
+      const stored = TaskRepository.getById('task-partial');
+      expect(stored?.title).toBe('Старый заголовок');
+      expect(stored?.status).toBe('done');
+      expect(stored?.updatedAt).toBe(updated.updatedAt);
     });
   });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Task } from '../types';
-import { TaskRepository } from '../repositories/TaskRepository';
+import { TaskRepository, UpdateTaskInput } from '../repositories/TaskRepository';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -17,9 +17,10 @@ export function useTasks() {
     return newTask;
   }, []);
 
-  const updateTask = useCallback((updated: Task) => {
+  const updateTask = useCallback((updated: UpdateTaskInput): Task => {
     const updatedTask = TaskRepository.update(updated);
     setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t)));
+    return updatedTask;
   }, []);
 
   const deleteTask = useCallback((taskId: string) => {

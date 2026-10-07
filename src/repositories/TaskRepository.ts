@@ -2,8 +2,28 @@ import { Task } from '../types';
 
 export const TASK_STORAGE_KEY = 'chronos_tasks';
 
+/**
+ * Входные данные для обновления задачи.
+ * Поле `updatedAt` не обязательно передавать — оно автоматически устанавливается в текущее время.
+ */
+export type UpdateTaskInput = (Omit<Task, 'updatedAt'> & Partial<Pick<Task, 'updatedAt'>>) | (Partial<Task> & { id: string });
+
+/**
+ * Генерация уникального идентификатора задачи с использованием standard Web Crypto API.
+ */
+export function generateTaskId(): string {
+  return crypto.randomUUID();
+}
+
 export class TaskRepository {
   static readonly STORAGE_KEY = TASK_STORAGE_KEY;
+
+  /**
+   * Генерация уникального ID для задачи.
+   */
+  static generateId(): string {
+    return generateTaskId();
+  }
 
   /**
    * Получение всех задач из хранилища (или пустой массив, если хранилище пусто).
@@ -37,7 +57,7 @@ export class TaskRepository {
    * Создание новой задачи и сохранение в хранилище.
    */
   static create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task {
-    const id = taskData.id ?? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'task-' + Date.now());
+    const id = taskData.id ?? generateTaskId();
     const now = new Date().toISOString();
     const newTask: Task = {
       ...taskData,
@@ -54,16 +74,34 @@ export class TaskRepository {
 
   /**
    * Обновление существующей задачи в хранилище.
+   * Поле `updatedAt` автоматически устанавливается в текущее время (ISO-строка).
    */
-  static update(updated: Task): Task {
-    const withUpdatedTime: Task = {
-      ...updated,
-      updatedAt: new Date().toISOString(),
-    };
+  static update(updated: UpdateTaskInput): Task {
+    const now = new Date().toISOString();
     const currentTasks = TaskRepository.getAll();
-    const updatedTasks = currentTasks.map(t => (t.id === updated.id ? withUpdatedTime : t));
+    let updatedTaskResult: Task | undefined;
+
+    const updatedTasks = currentTasks.map(t => {
+      if (t.id === updated.id) {
+        updatedTaskResult = {
+          ...t,
+          ...updated,
+          updatedAt: now,
+        };
+        return updatedTaskResult;
+      }
+      return t;
+    });
+
+    if (!updatedTaskResult) {
+      updatedTaskResult = {
+        ...updated,
+        updatedAt: now,
+      } as Task;
+    }
+
     TaskRepository.saveAll(updatedTasks);
-    return withUpdatedTime;
+    return updatedTaskResult;
   }
 
   /**
@@ -92,19 +130,20 @@ export class TaskRepository {
   static getAllTasks(): Task[] { return TaskRepository.getAll(); }
   static getTaskById(id: string): Task | undefined { return TaskRepository.getById(id); }
   static createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
-  static updateTask(task: Task): Task { return TaskRepository.update(task); }
+  static updateTask(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
   static deleteTask(taskId: string): void { TaskRepository.delete(taskId); }
   static saveTasks(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
 
   // Экземплярные методы для работы через объект
+  generateId(): string { return generateTaskId(); }
   getAll(): Task[] { return TaskRepository.getAll(); }
   getAllTasks(): Task[] { return TaskRepository.getAll(); }
   getById(id: string): Task | undefined { return TaskRepository.getById(id); }
   getTaskById(id: string): Task | undefined { return TaskRepository.getById(id); }
   create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
   createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
-  update(task: Task): Task { return TaskRepository.update(task); }
-  updateTask(task: Task): Task { return TaskRepository.update(task); }
+  update(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
+  updateTask(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
   delete(taskId: string): void { TaskRepository.delete(taskId); }
   deleteTask(taskId: string): void { TaskRepository.delete(taskId); }
   saveAll(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
