@@ -134,31 +134,15 @@ export class TaskRepository {
     return validated.tasks;
   }
 
-  // Алиасы для расширенной совместимости
-  static getAllTasks(): Task[] { return TaskRepository.getAll(); }
-  static getTaskById(id: string): Task | undefined { return TaskRepository.getById(id); }
-  static createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
-  static updateTask(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
-  static deleteTask(taskId: string): void { TaskRepository.delete(taskId); }
-  static saveTasks(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
-  static importTasks(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
-
   // Экземплярные методы для работы через объект
   generateId(): string { return generateTaskId(); }
   getAll(): Task[] { return TaskRepository.getAll(); }
-  getAllTasks(): Task[] { return TaskRepository.getAll(); }
   getById(id: string): Task | undefined { return TaskRepository.getById(id); }
-  getTaskById(id: string): Task | undefined { return TaskRepository.getById(id); }
   create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
-  createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task { return TaskRepository.create(taskData); }
   update(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
-  updateTask(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
   delete(taskId: string): void { TaskRepository.delete(taskId); }
-  deleteTask(taskId: string): void { TaskRepository.delete(taskId); }
   saveAll(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
-  saveTasks(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
   importFromBackup(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
-  importTasks(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
 }
 
 export const taskRepository = new TaskRepository();

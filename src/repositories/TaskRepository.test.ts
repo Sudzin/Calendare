@@ -478,6 +478,13 @@ describe('TaskRepository', () => {
 
       taskRepository.delete(created.id);
       expect(taskRepository.getAll()).toEqual([]);
+
+      taskRepository.saveAll([created]);
+      expect(taskRepository.getAll()).toHaveLength(1);
+
+      const imported = taskRepository.importFromBackup({ tasks: [created] });
+      expect(imported).toHaveLength(1);
+      expect(taskRepository.getAll()).toHaveLength(1);
     });
   });
 });
