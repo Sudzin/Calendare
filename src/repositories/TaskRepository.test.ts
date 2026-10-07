@@ -167,6 +167,24 @@ describe('TaskRepository', () => {
       expect(newTask.updatedAt).toBeDefined();
     });
 
+    it('устанавливает валидные ISO timestamp для createdAt и updatedAt при создании', () => {
+      const task = TaskRepository.create({
+        title: 'Задача с временными метками',
+        type: 'floating',
+        date: '2026-10-07',
+        priority: 'medium',
+        status: 'todo',
+        notes: '',
+        pomodoroCount: 0,
+      });
+
+      const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+      expect(task.createdAt).toMatch(isoRegex);
+      expect(task.updatedAt).toMatch(isoRegex);
+      expect(Number.isNaN(Date.parse(task.createdAt))).toBe(false);
+      expect(Number.isNaN(Date.parse(task.updatedAt))).toBe(false);
+    });
+
     it('два последовательно созданных объекта получают разные ID', () => {
       const task1 = TaskRepository.create({
         title: 'Первая задача',

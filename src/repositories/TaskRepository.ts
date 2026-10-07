@@ -1,5 +1,6 @@
 import { Task } from '../types';
 import { validateBackup } from '../utils/backupValidation';
+import { getCurrentTimestamp } from '../utils/date';
 
 export const TASK_STORAGE_KEY = 'chronos_tasks';
 
@@ -59,7 +60,7 @@ export class TaskRepository {
    */
   static create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Task, 'id' | 'createdAt' | 'updatedAt'>>): Task {
     const id = taskData.id ?? generateTaskId();
-    const now = new Date().toISOString();
+    const now = getCurrentTimestamp();
     const newTask: Task = {
       ...taskData,
       id,
@@ -86,7 +87,7 @@ export class TaskRepository {
       throw new Error(`Task not found: ${updated.id}`);
     }
 
-    const now = new Date().toISOString();
+    const now = getCurrentTimestamp();
     const updatedTaskResult: Task = {
       ...existingTask,
       ...updated,
