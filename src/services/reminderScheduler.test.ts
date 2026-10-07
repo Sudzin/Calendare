@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as React from 'react';
+import { renderHook } from '@testing-library/react';
 import { ReminderScheduler, reminderScheduler } from './reminderScheduler';
 import { useReminderScheduler } from '../hooks/useReminderScheduler';
 import { Task } from '../types';
@@ -390,76 +391,6 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
   });
 });
-
-function renderHook<T>(hookFn: () => T) {
-  let hookIndex = 0;
-  const refList: any[] = [];
-  const effectCallbacks: { fn: () => void | (() => void); deps?: unknown[] }[] = [];
-  const cleanups: (() => void)[] = [];
-  let isMounted = true;
-  const result = { current: undefined as unknown as T };
-
-  const dispatcher = {
-    useState: <S>(initial: S | (() => S)) => [initial, () => {}],
-    useRef: <V>(initial: V) => {
-      const idx = hookIndex++;
-      if (idx >= refList.length) {
-        refList[idx] = { current: initial };
-      }
-      return refList[idx];
-    },
-    useCallback: <F extends Function>(fn: F) => fn,
-    useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
-      const idx = hookIndex++;
-      if (!isMounted) return;
-      const prevEntry = effectCallbacks[idx];
-      let hasChanged = true;
-      if (prevEntry && prevEntry.deps && deps) {
-        hasChanged = deps.some((d, i) => !Object.is(d, prevEntry.deps![i]));
-      }
-      if (hasChanged) {
-        if (cleanups[idx]) {
-          cleanups[idx]();
-        }
-        const cleanup = effect();
-        if (typeof cleanup === 'function') {
-          cleanups[idx] = cleanup;
-        }
-      }
-      effectCallbacks[idx] = { fn: effect, deps };
-    },
-  };
-
-  const execute = () => {
-    hookIndex = 0;
-    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-    const prevDispatcher = internals?.H;
-    internals.H = dispatcher;
-    try {
-      result.current = hookFn();
-    } finally {
-      internals.H = prevDispatcher;
-    }
-  };
-
-  execute();
-
-  return {
-    result,
-    rerender: () => {
-      if (!isMounted) return;
-      execute();
-    },
-    unmount: () => {
-      isMounted = false;
-      for (const cleanup of cleanups) {
-        if (typeof cleanup === 'function') {
-          cleanup();
-        }
-      }
-    },
-  };
-}
 
 describe('useReminderScheduler Hook integration (src/hooks/useReminderScheduler.ts)', () => {
   let originalNotification: typeof Notification | undefined;
