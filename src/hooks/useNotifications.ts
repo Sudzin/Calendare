@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { sound } from '../utils/sound';
+import { showNotification, requestPermission } from '../services/notificationService';
 
 export interface ToastItem {
   id: string;
@@ -8,7 +9,23 @@ export interface ToastItem {
   timestamp: string;
 }
 
-export function useNotifications(soundEnabled = true) {
+export interface UseNotificationsOptions {
+  soundEnabled?: boolean;
+  notificationsEnabled?: boolean;
+}
+
+export function useNotifications(
+  optionsOrSoundEnabled: boolean | UseNotificationsOptions = true,
+  notificationsEnabledParam = true
+) {
+  const soundEnabled = typeof optionsOrSoundEnabled === 'boolean'
+    ? optionsOrSoundEnabled
+    : (optionsOrSoundEnabled.soundEnabled ?? true);
+
+  const notificationsEnabled = typeof optionsOrSoundEnabled === 'object'
+    ? (optionsOrSoundEnabled.notificationsEnabled ?? true)
+    : notificationsEnabledParam;
+
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const pushToast = useCallback((title: string, message: string) => {
@@ -26,18 +43,13 @@ export function useNotifications(soundEnabled = true) {
       sound.playAlert();
     }
 
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, { body: message });
-      } catch {
-        // Notification API fallback
-      }
-    }
+    // Отправка через изолированный сервис браузерных уведомлений
+    showNotification(title, { body: message }, notificationsEnabled);
 
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
-  }, [soundEnabled]);
+  }, [soundEnabled, notificationsEnabled]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -47,5 +59,6 @@ export function useNotifications(soundEnabled = true) {
     toasts,
     pushToast,
     dismissToast,
+    requestPermission,
   };
 }
