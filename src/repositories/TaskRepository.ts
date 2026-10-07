@@ -1,5 +1,4 @@
 import { Task } from '../types';
-import { getInitialTasks } from '../data/initialTasks';
 
 export const TASK_STORAGE_KEY = 'chronos_tasks';
 
@@ -7,12 +6,12 @@ export class TaskRepository {
   static readonly STORAGE_KEY = TASK_STORAGE_KEY;
 
   /**
-   * Получение всех задач из хранилища (или начальных данных, если хранилище пусто).
+   * Получение всех задач из хранилища (или пустой массив, если хранилище пусто).
    */
   static getAll(): Task[] {
     try {
       if (typeof localStorage === 'undefined') {
-        return getInitialTasks();
+        return [];
       }
       const raw = localStorage.getItem(TaskRepository.STORAGE_KEY);
       if (raw !== null) {
@@ -24,7 +23,7 @@ export class TaskRepository {
     } catch (e) {
       console.error('Failed to parse stored tasks:', e);
     }
-    return getInitialTasks();
+    return [];
   }
 
   /**
