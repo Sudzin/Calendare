@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { rolloverTasks, hasOverdueTasks, EscalationRecord } from './rollover';
 import { Task } from '../types';
 
@@ -19,6 +19,16 @@ function createSampleTask(overrides: Partial<Task> = {}): Task {
 
 describe('Pure Rollover Logic (src/utils/rollover.ts)', () => {
   const targetToday = '2026-10-07';
+  const fixedNow = '2026-10-07T12:34:56.789Z';
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(fixedNow));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('вчерашняя незавершённая задача → переносится на сегодня с повышением приоритета', () => {
     const yesterdayTask = createSampleTask({
@@ -39,7 +49,7 @@ describe('Pure Rollover Logic (src/utils/rollover.ts)', () => {
     expect(updated.isEscalated).toBe(true);
     expect(updated.escalationReason).toBe('Авто-перенос с 2026-10-06 (+1 уровень приоритета)');
     expect(updated.rolloverCount).toBe(1);
-    expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(0);
+    expect(updated.updatedAt).toBe(fixedNow);
   });
 
   it('задача двухдневной давности → также корректно обрабатывается согласно текущим правилам', () => {
@@ -63,6 +73,7 @@ describe('Pure Rollover Logic (src/utils/rollover.ts)', () => {
     expect(updated.isEscalated).toBe(true);
     expect(updated.escalationReason).toBe('Авто-перенос с 2026-10-05 (+1 уровень приоритета)');
     expect(updated.rolloverCount).toBe(2);
+    expect(updated.updatedAt).toBe(fixedNow);
   });
 
   it('завершённая задача (status === "done") → не переносится', () => {

@@ -101,6 +101,15 @@ export function isAfterDate(dateA: string, dateB: string): boolean {
   return dateA > dateB;
 }
 
+/**
+ * Возвращает текущий полный ISO 8601 timestamp (UTC) для полей createdAt / updatedAt.
+ * Например: '2026-10-07T12:00:00.000Z'.
+ * В отличие от календарных дат (YYYY-MM-DD), отражает точный глобальный момент времени.
+ */
+export function getCurrentTimestamp(): string {
+  return new Date().toISOString();
+}
+
 // Алиасы для совместимости с существующим кодом
 export const toDateString = formatDate;
 export const parseDateString = parseDate;

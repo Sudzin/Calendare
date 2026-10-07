@@ -4,7 +4,7 @@
  */
 
 import { Task, TaskPriority } from '../types';
-import { isBeforeDate } from './date';
+import { isBeforeDate, getCurrentTimestamp } from './date';
 import { getNextPriority } from './priorityUtils';
 
 export interface EscalationRecord {
@@ -59,7 +59,7 @@ export function rolloverTasks(tasks: Task[], targetDate: string): RolloverResult
         isEscalated: true,
         escalationReason: `Авто-перенос с ${t.date} (+1 уровень приоритета)`,
         rolloverCount: (t.rolloverCount || 0) + 1,
-        updatedAt: new Date().toISOString(),
+        updatedAt: getCurrentTimestamp(),
       };
 
       escalatedRecords.push({

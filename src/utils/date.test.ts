@@ -10,6 +10,7 @@ import {
   isSameDate,
   isBeforeDate,
   isAfterDate,
+  getCurrentTimestamp,
 } from './date';
 
 describe('Local Date Utility (src/utils/date.ts)', () => {
@@ -156,6 +157,13 @@ describe('Local Date Utility (src/utils/date.ts)', () => {
       expect(isAfterDate('2026-10-08', '2026-10-07')).toBe(true);
       expect(isAfterDate('2026-10-07', '2026-10-07')).toBe(false);
       expect(isAfterDate('2026-10-06', '2026-10-07')).toBe(false);
+    });
+  });
+
+  describe('getCurrentTimestamp', () => {
+    it('возвращает полный ISO 8601 timestamp (UTC) соответствующий системному времени', () => {
+      vi.setSystemTime(new Date('2026-10-07T15:30:45.123Z'));
+      expect(getCurrentTimestamp()).toBe('2026-10-07T15:30:45.123Z');
     });
   });
 
