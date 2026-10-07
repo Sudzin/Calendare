@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getReminderDateTime, isReminderDue, hasActiveReminder } from './reminder';
+import { getReminderDateTime } from './reminder';
 import { Task } from '../types';
 
 function createSampleTask(overrides: Partial<Task> = {}): Task {
@@ -163,57 +163,5 @@ describe('Reminder Time Calculation (src/utils/reminder.ts)', () => {
       });
     });
   });
-
-  describe('isReminderDue', () => {
-    it('возвращает true, если контрольное время наступило или прошло момент напоминания', () => {
-      const task = createSampleTask({
-        date: '2026-10-07',
-        reminderTime: '10:00',
-      });
-
-      // Контрольное время ровно в 10:00
-      expect(isReminderDue(task, new Date(2026, 9, 7, 10, 0, 0))).toBe(true);
-
-      // Контрольное время позже (10:05)
-      expect(isReminderDue(task, new Date(2026, 9, 7, 10, 5, 0))).toBe(true);
-    });
-
-    it('возвращает false, если контрольное время до момента напоминания', () => {
-      const task = createSampleTask({
-        date: '2026-10-07',
-        reminderTime: '10:00',
-      });
-
-      // Контрольное время раньше (09:59)
-      expect(isReminderDue(task, new Date(2026, 9, 7, 9, 59, 59))).toBe(false);
-    });
-
-    it('возвращает false для завершённых задач или задач без напоминания', () => {
-      const doneTask = createSampleTask({
-        date: '2026-10-07',
-        reminderTime: '10:00',
-        status: 'done',
-      });
-      expect(isReminderDue(doneTask, new Date(2026, 9, 7, 12, 0, 0))).toBe(false);
-
-      const noReminderTask = createSampleTask({
-        date: '2026-10-07',
-        reminderTime: undefined,
-      });
-      expect(isReminderDue(noReminderTask, new Date(2026, 9, 7, 12, 0, 0))).toBe(false);
-    });
-  });
-
-  describe('hasActiveReminder', () => {
-    it('возвращает true для активной задачи со строкой reminderTime', () => {
-      expect(hasActiveReminder(createSampleTask({ reminderTime: '12:00', status: 'todo' }))).toBe(true);
-      expect(hasActiveReminder(createSampleTask({ reminderTime: '12:00', status: 'in_progress' }))).toBe(true);
-    });
-
-    it('возвращает false для завершённой задачи или задачи без времени напоминания', () => {
-      expect(hasActiveReminder(createSampleTask({ reminderTime: '12:00', status: 'done' }))).toBe(false);
-      expect(hasActiveReminder(createSampleTask({ reminderTime: undefined }))).toBe(false);
-      expect(hasActiveReminder(createSampleTask({ reminderTime: '' }))).toBe(false);
-    });
-  });
 });
+

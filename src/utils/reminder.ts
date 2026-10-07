@@ -76,33 +76,3 @@ export function getReminderDateTime(
 
   return isNaN(reminderDateTime.getTime()) ? null : reminderDateTime;
 }
-
-/**
- * Проверяет, наступило ли время напоминания относительно контрольного момента.
- *
- * @param task - задача
- * @param referenceDate - контрольное время (по умолчанию текущее локальное время)
- * @returns boolean - true, если напоминание активно и его момент наступил (<= referenceDate)
- */
-export function isReminderDue(
-  task: Pick<Task, 'date' | 'reminderTime'> & Partial<Pick<Task, 'status'>>,
-  referenceDate: Date = new Date()
-): boolean {
-  const reminderDateTime = getReminderDateTime(task, referenceDate);
-  if (!reminderDateTime) {
-    return false;
-  }
-  return referenceDate.getTime() >= reminderDateTime.getTime();
-}
-
-/**
- * Проверяет, задано ли у задачи активное напоминание.
- */
-export function hasActiveReminder(
-  task: Pick<Task, 'reminderTime'> & Partial<Pick<Task, 'status'>>
-): boolean {
-  if (task.status === 'done') {
-    return false;
-  }
-  return typeof task.reminderTime === 'string' && task.reminderTime.trim().length > 0;
-}
