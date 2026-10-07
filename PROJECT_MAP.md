@@ -56,10 +56,13 @@ src/
 * `src/repositories/TaskRepository.ts` — репозиторий задач; единственный модуль чтения/записи задач в хранилище.
 * `src/utils/date.ts` — централизованный модуль работы с календарными датами и временем.
 * `src/utils/rollover.ts` — чистая бизнес-функция переноса задач на целевую дату.
+* `src/utils/reminder.ts` — чистый расчет локального момента напоминания задачи (`getReminderDateTime`).
 * `src/services/notificationService.ts` — изолированный сервис вызова Browser Notification API.
+* `src/services/reminderScheduler.ts` — сервис планирования и показа напоминаний по таймеру.
 * `src/hooks/useTasks.ts` — React-хук состояния задач, связывающий UI с `TaskRepository`.
 * `src/hooks/useRollover.ts` — React-хук оркестрации переноса (вызов `rolloverTasks`, тосты, модалка).
 * `src/hooks/useNotifications.ts` — хук очереди in-app тостов и вызова `notificationService`.
+* `src/hooks/useReminderScheduler.ts` — хук синхронизации задач со службой `reminderScheduler`.
 * `src/hooks/useSettings.ts` — хук настроек приложения и переключения тем оформления.
 * `src/App.tsx` — корневой компонент приложения, модальные окна и композиция провайдеров.
 * `src/components/calendar/CalendarGrid.tsx` — основная сетка календаря (месячный и недельный вид).
@@ -84,7 +87,7 @@ User Action
 ### Поток создания и изменения Task:
 1. Пользователь сохраняет задачу в `TaskForm` или редактирует в `TaskDetailView`.
 2. Компонент вызывает метод `addTask` / `updateTask` из `useTasks`.
-3. `TaskRepository.create` генерирует ID (если не передан), проставляет `createdAt` и `updatedAt`.
+3. `TaskRepository.create` генерирует ID (через `crypto.randomUUID()`, если не передан), проставляет `createdAt` и `updatedAt`.
 4. `TaskRepository.update` автоматически обновляет поле `updatedAt` задачи.
 5. Задачи синхронно сериализуются в `localStorage` (`chronos_tasks`).
 6. Состояние `tasks` в `useTasks` обновляется, запуская перерендер сетки и воркспейса.
@@ -93,7 +96,7 @@ User Action
 
 * **Определение**: `src/types.ts` (`interface Task`).
 * **Ключевые поля**:
-  * `id`: строка (правило: генерируется через `task-${Date.now()}-${random}` в `TaskRepository`).
+  * `id`: строка (правило: генерируется через `crypto.randomUUID()` функцией `generateTaskId()` в `TaskRepository`).
   * `title`: строка.
   * `type`: `'timed'` (привязанная ко времени) \| `'floating'` (гибкая задача дня).
   * `date`: календарная дата задачи (`YYYY-MM-DD`).
@@ -137,13 +140,17 @@ App
   ├── useNotifications (управляет in-app toasts, вызывает notificationService)
   │     ├── sound
   │     └── notificationService (Browser Notification API)
-  └── useRollover (оркестрирует перенос задач)
-        ├── getTodayDate (src/utils/date.ts)
-        ├── rolloverTasks (src/utils/rollover.ts)
-        │     ├── isBeforeDate (src/utils/date.ts)
-        │     ├── getNextPriority (src/utils/priorityUtils.ts)
-        │     └── getCurrentTimestamp (src/utils/date.ts)
-        └── sound
+  ├── useRollover (оркестрирует перенос задач)
+  │     ├── getTodayDate (src/utils/date.ts)
+  │     ├── rolloverTasks (src/utils/rollover.ts)
+  │     │     ├── isBeforeDate (src/utils/date.ts)
+  │     │     ├── getNextPriority (src/utils/priorityUtils.ts)
+  │     │     └── getCurrentTimestamp (src/utils/date.ts)
+  │     └── sound
+  └── useReminderScheduler (оркестрирует напоминания)
+        └── reminderScheduler (src/services/reminderScheduler.ts)
+              ├── getReminderDateTime (src/utils/reminder.ts)
+              └── showNotification (src/services/notificationService.ts)
 ```
 
 ### Чувствительные зоны:
@@ -169,8 +176,7 @@ App
 
 * **Отсутствие системного фонового scheduler при закрытом приложении** → `src/services/reminderScheduler.ts` → Текущий scheduler работает в рантайме открытого SPA (setTimeout). Фоновые уведомления через Web Worker или нативные Windows/Tauri нотификации пока не реализованы.
 * **Прямые вызовы `new Date().toISOString()` в TaskRepository** → `src/repositories/TaskRepository.ts:62, 89` → Репозиторий пока формирует timestamps напрямую вместо `getCurrentTimestamp()`.
-* **Прямые вызовы `toISOString()` в initialTasks и SettingsModal** → `src/data/initialTasks.ts`, `src/components/common/SettingsModal.tsx:79` → Используется нативный метод Date вместо централизованной функции.
-* **Генерация ID задач через Math.random** → `src/repositories/TaskRepository.ts:16` → ID формируются строкой `task-${Date.now()}-${random}` вместо стандартизированного `crypto.randomUUID()`.
+* **Прямые вызовы `toISOString()` в initialTasks и SettingsModal** → `src/data/initialTasks.ts`, `src/components/common/SettingsModal.tsx:80` → Используется нативный метод Date вместо централизованной функции.
 
 ## 13. Agent navigation rule
 
