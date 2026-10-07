@@ -42,6 +42,8 @@ src/
 | Date/time | `src/utils/date.ts` | Локальные календарные даты (`YYYY-MM-DD`), смещения дней, ISO timestamp |
 | Calendar grid utils | `src/utils/dateUtils.ts` | Матрицы месяца и недели, русские названия месяцев/дней недели |
 | Notifications service | `src/services/notificationService.ts` | Изоляция Browser Notification API, проверка разрешений, отправка уведомлений |
+| Reminder scheduler | `src/services/reminderScheduler.ts` | Планирование и отправка уведомлений задач по `reminderTime` |
+| Reminder calculation | `src/utils/reminder.ts` | Чистый расчет локального момента напоминания задачи (`getReminderDateTime`) |
 | Priority calculation | `src/utils/priorityUtils.ts` | Правила эскалации приоритета (`low` → `medium` → `high` → `critical`) и метаданные |
 | Workload calculation | `src/utils/workloadUtils.ts` | Расчет плотности задач дня (`none`, `light`, `moderate`, `heavy`) |
 | Sound effects | `src/utils/sound.ts` | Звуковые эффекты через Web Audio API (клики, алерты, таймер) |
@@ -157,6 +159,7 @@ App
 * **Rollover** → `src/utils/rollover.ts`, `src/utils/rollover.test.ts`, `src/hooks/useRollover.ts`
 * **Dates & formatting** → `src/utils/date.ts`, `src/utils/date.test.ts`, `src/utils/dateUtils.ts`
 * **Notifications** → `src/services/notificationService.ts`, `src/services/notificationService.test.ts`, `src/hooks/useNotifications.ts`
+* **Reminders & scheduler** → `src/services/reminderScheduler.ts`, `src/services/reminderScheduler.test.ts`, `src/utils/reminder.ts`, `src/hooks/useReminderScheduler.ts`
 * **Calendar view** → `src/components/calendar/CalendarGrid.tsx`, `src/components/calendar/CalendarDayCell.tsx`
 * **Settings & themes** → `src/hooks/useSettings.ts`, `src/components/common/SettingsModal.tsx`
 * **Backup & export/import** → `src/utils/backupValidation.ts`, `src/utils/backupValidation.test.ts`, `src/components/common/SettingsModal.tsx`
@@ -164,7 +167,7 @@ App
 
 ## 12. Known technical debt
 
-* **Неиспользуемый `reminderTime`** → `src/components/day/TaskForm.tsx`, `src/types.ts` → Поле сохраняется в задачах и валидируется бэкапом, но планировщик напоминаний (scheduler) пока не реализован.
+* **Отсутствие системного фонового scheduler при закрытом приложении** → `src/services/reminderScheduler.ts` → Текущий scheduler работает в рантайме открытого SPA (setTimeout). Фоновые уведомления через Web Worker или нативные Windows/Tauri нотификации пока не реализованы.
 * **Прямые вызовы `new Date().toISOString()` в TaskRepository** → `src/repositories/TaskRepository.ts:62, 89` → Репозиторий пока формирует timestamps напрямую вместо `getCurrentTimestamp()`.
 * **Прямые вызовы `toISOString()` в initialTasks и SettingsModal** → `src/data/initialTasks.ts`, `src/components/common/SettingsModal.tsx:79` → Используется нативный метод Date вместо централизованной функции.
 * **Генерация ID задач через Math.random** → `src/repositories/TaskRepository.ts:16` → ID формируются строкой `task-${Date.now()}-${random}` вместо стандартизированного `crypto.randomUUID()`.

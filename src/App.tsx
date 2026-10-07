@@ -8,6 +8,7 @@ import { useSettings } from './hooks/useSettings';
 import { useTasks } from './hooks/useTasks';
 import { useNotifications } from './hooks/useNotifications';
 import { useRollover } from './hooks/useRollover';
+import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { getTodayDate } from './utils/date';
 
 import { Sidebar, ActiveNavTab } from './components/layout/Sidebar';
@@ -33,6 +34,10 @@ export default function App() {
     isRolloverAlertOpen,
     setIsRolloverAlertOpen,
   } = useRollover(tasks, setAllTasks, pushToast, settings.soundEnabled);
+
+  useReminderScheduler(tasks, {
+    notificationsEnabled: settings.notificationsEnabled,
+  });
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [activeDateStr, setActiveDateStr] = useState<string>(getTodayDate());
