@@ -1,5 +1,5 @@
 import { Task } from '../types';
-import { getTodayDate, getDateDaysAgo } from '../utils/date';
+import { getTodayDate, getDateDaysAgo, getCurrentTimestamp } from '../utils/date';
 
 export function getInitialTasks(): Task[] {
   const todayStr = getTodayDate();
@@ -27,8 +27,8 @@ export function getInitialTasks(): Task[] {
 > **Заметка:** Преподаватель просил сдать курсовой проект до 25 числа.`,
       reminderTime: '08:45',
       pomodoroCount: 2,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     },
     {
       id: 'task-2',
@@ -47,8 +47,8 @@ export function getInitialTasks(): Task[] {
 - [ ] Оформить выводы`,
       reminderTime: '10:35',
       pomodoroCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     },
     {
       id: 'task-3',
@@ -62,8 +62,8 @@ export function getInitialTasks(): Task[] {
       notes: `Обсуждение интеграции SQLite с локальной синхронизацией через OneDrive.`,
       reminderTime: '15:50',
       pomodoroCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     },
 
     // Today's Floating Tasks
@@ -90,8 +90,8 @@ export function getInitialTasks(): Task[] {
 3. Добавить остаток молока и масло. Дать постоять 15 минут.
 4. Выпекать на раскаленной сковороде с двух сторон!`,
       pomodoroCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     },
     {
       id: 'task-5',
@@ -102,8 +102,8 @@ export function getInitialTasks(): Task[] {
       status: 'todo',
       notes: `Проверить, чтобы файл БД в OneDrive не получал конфликтных копий (\`tasks-conflicted.db\`). Режим WAL в SQLite решает большинство блокировок.`,
       pomodoroCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     },
 
     // Escalated Rollover Task (from Yesterday)
@@ -128,7 +128,7 @@ export function getInitialTasks(): Task[] {
       rolloverCount: 1,
       pomodoroCount: 3,
       createdAt: new Date(Date.now() - 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
+      updatedAt: getCurrentTimestamp(),
     },
 
     // Tomorrow task
@@ -141,8 +141,8 @@ export function getInitialTasks(): Task[] {
       status: 'todo',
       notes: `Распределить задачи по модулям Tauri + React.`,
       pomodoroCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     },
   ];
 }

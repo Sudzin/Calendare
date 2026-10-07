@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, Task, ThemePreset } from '../../types';
 import { WEEKDAYS_RU } from '../../utils/dateUtils';
-import { getTodayDate } from '../../utils/date';
+import { getTodayDate, getCurrentTimestamp } from '../../utils/date';
 import { sound } from '../../utils/sound';
 import { validateBackup } from '../../utils/backupValidation';
 
@@ -77,7 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     sound.playTap();
     const backupData = {
       version: '2.0',
-      exportedAt: new Date().toISOString(),
+      exportedAt: getCurrentTimestamp(),
       settings: localSettings,
       tasks,
     };
