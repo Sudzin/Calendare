@@ -27,7 +27,7 @@ export function useTasks() {
   }, [tasks]);
 
   const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task => {
-    const id = 'task-' + Date.now();
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'task-' + Date.now();
     const newTask: Task = {
       ...taskData,
       id,
@@ -39,7 +39,11 @@ export function useTasks() {
   }, []);
 
   const updateTask = useCallback((updated: Task) => {
-    setTasks(prev => prev.map(t => (t.id === updated.id ? updated : t)));
+    const withUpdatedTime: Task = {
+      ...updated,
+      updatedAt: new Date().toISOString(),
+    };
+    setTasks(prev => prev.map(t => (t.id === updated.id ? withUpdatedTime : t)));
   }, []);
 
   const deleteTask = useCallback((taskId: string) => {

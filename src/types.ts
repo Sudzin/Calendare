@@ -21,6 +21,8 @@ export interface Task {
   updatedAt: string;
 }
 
+export type ThemePreset = 'midnight-gold' | 'emerald-frosted' | 'solar-glass';
+
 export interface AppSettings {
   dbPath: string;
   customWeekends: number[]; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -30,7 +32,8 @@ export interface AppSettings {
   autoRollover: boolean;
   notificationsEnabled: boolean;
   startWithWindows: boolean;
-  theme: 'dark' | 'light';
+  theme: ThemePreset | 'dark' | 'light';
+  blurStrength?: number;
 }
 
 export interface DayWorkload {

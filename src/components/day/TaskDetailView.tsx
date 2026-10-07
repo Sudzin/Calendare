@@ -45,7 +45,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
         <input
           type="text"
           value={task.title}
-          onChange={e => onUpdateTask({ ...task, title: e.target.value, updatedAt: new Date().toISOString() })}
+          onChange={e => onUpdateTask({ ...task, title: e.target.value })}
           className="font-serif text-base font-medium text-[var(--color-text-primary)] bg-transparent border-b border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-accent)] focus:outline-none w-full py-0.5 transition-colors"
         />
         <button
@@ -69,14 +69,14 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
           <input
             type="time"
             value={task.startTime || '09:00'}
-            onChange={e => onUpdateTask({ ...task, startTime: e.target.value, updatedAt: new Date().toISOString() })}
+            onChange={e => onUpdateTask({ ...task, startTime: e.target.value })}
             className="bg-[var(--color-app-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text-primary)] font-mono"
           />
           <span>–</span>
           <input
             type="time"
             value={task.endTime || '10:30'}
-            onChange={e => onUpdateTask({ ...task, endTime: e.target.value, updatedAt: new Date().toISOString() })}
+            onChange={e => onUpdateTask({ ...task, endTime: e.target.value })}
             className="bg-[var(--color-app-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text-primary)] font-mono"
           />
         </div>
@@ -96,7 +96,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                 type="button"
                 onClick={() => {
                   sound.playClick();
-                  onUpdateTask({ ...task, status: st, updatedAt: new Date().toISOString() });
+                  onUpdateTask({ ...task, status: st });
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-colors ${
                   task.status === st
@@ -125,7 +125,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                   type="button"
                   onClick={() => {
                     sound.playClick();
-                    onUpdateTask({ ...task, priority: pr, updatedAt: new Date().toISOString() });
+                    onUpdateTask({ ...task, priority: pr });
                   }}
                   className={`px-1.5 py-1 rounded text-[10px] transition-colors font-medium border ${
                     isCurrent
@@ -148,7 +148,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
         </span>
         <MarkdownWorkspace
           content={task.notes || ''}
-          onChange={newNotes => onUpdateTask({ ...task, notes: newNotes, updatedAt: new Date().toISOString() })}
+          onChange={newNotes => onUpdateTask({ ...task, notes: newNotes })}
         />
       </div>
     </div>

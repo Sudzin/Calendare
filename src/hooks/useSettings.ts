@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { AppSettings } from '../types';
+import { AppSettings, ThemePreset } from '../types';
+import { sound } from '../utils/sound';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   dbPath: 'C:\\Users\\User\\OneDrive\\ChronosTask\\tasks.db',
@@ -10,7 +11,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoRollover: true,
   notificationsEnabled: true,
   startWithWindows: true,
-  theme: 'dark',
+  theme: 'midnight-gold',
+  blurStrength: 16,
 };
 
 const STORAGE_KEY = 'chronos_settings';
@@ -21,10 +23,15 @@ export function useSettings() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return DEFAULT_SETTINGS;
       const parsed = JSON.parse(raw);
-      // Safe merge with DEFAULT_SETTINGS
+      // If previous stored theme was 'dark', upgrade to 'midnight-gold', if 'light' upgrade to 'solar-glass'
+      let theme: AppSettings['theme'] = parsed.theme || DEFAULT_SETTINGS.theme;
+      if (theme === 'dark') theme = 'midnight-gold';
+      if (theme === 'light') theme = 'solar-glass';
+
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        theme,
       };
     } catch {
       return DEFAULT_SETTINGS;
@@ -39,17 +46,36 @@ export function useSettings() {
     }
   }, [settings]);
 
-  // Synchronize theme class on body / documentElement
+  // Synchronize sound effects state
+  useEffect(() => {
+    sound.setEnabled(settings.soundEnabled);
+  }, [settings.soundEnabled]);
+
+  // Synchronize theme class on documentElement & body
   useEffect(() => {
     const root = document.documentElement;
-    if (settings.theme === 'light') {
-      root.classList.remove('theme-dark');
-      root.classList.add('theme-light');
+    const currentTheme = settings.theme;
+
+    root.classList.remove(
+      'theme-midnight-gold',
+      'theme-emerald-frosted',
+      'theme-solar-glass',
+      'theme-dark',
+      'theme-light'
+    );
+
+    if (currentTheme === 'solar-glass' || currentTheme === 'light') {
+      root.classList.add('theme-solar-glass', 'theme-light');
+    } else if (currentTheme === 'emerald-frosted') {
+      root.classList.add('theme-emerald-frosted', 'theme-dark');
     } else {
-      root.classList.remove('theme-light');
-      root.classList.add('theme-dark');
+      // midnight-gold or dark
+      root.classList.add('theme-midnight-gold', 'theme-dark');
     }
-  }, [settings.theme]);
+
+    const blur = settings.blurStrength ?? 16;
+    root.style.setProperty('--glass-blur', `${blur}px`);
+  }, [settings.theme, settings.blurStrength]);
 
   const updateSettings = (partial: Partial<AppSettings> | ((prev: AppSettings) => AppSettings)) => {
     setSettings(prev => {
@@ -61,10 +87,17 @@ export function useSettings() {
   };
 
   const toggleTheme = () => {
-    updateSettings(prev => ({
-      ...prev,
-      theme: prev.theme === 'dark' ? 'light' : 'dark',
-    }));
+    updateSettings(prev => {
+      let nextTheme: ThemePreset = 'midnight-gold';
+      if (prev.theme === 'midnight-gold' || prev.theme === 'dark') {
+        nextTheme = 'emerald-frosted';
+      } else if (prev.theme === 'emerald-frosted') {
+        nextTheme = 'solar-glass';
+      } else {
+        nextTheme = 'midnight-gold';
+      }
+      return { ...prev, theme: nextTheme };
+    });
   };
 
   return {

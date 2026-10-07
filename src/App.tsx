@@ -57,20 +57,20 @@ export default function App() {
 
   // Handlers
   const handleSelectDay = (dateStr: string) => {
-    sound.playClick();
+    sound.playTap();
     setActiveDateStr(dateStr);
     setIsDayPreviewOpen(true);
   };
 
   const handleOpenFullDay = (dateStr: string) => {
-    sound.playClick();
+    sound.playTap();
     setActiveDateStr(dateStr);
     setIsDayPreviewOpen(false);
     setIsDayWorkspaceOpen(true);
   };
 
   const handleOpenNewTask = () => {
-    sound.playClick();
+    sound.playTap();
     setActiveDateStr(toDateString(new Date()));
     setIsDayPreviewOpen(false);
     setIsDayWorkspaceOpen(true);
@@ -78,6 +78,7 @@ export default function App() {
   };
 
   const handleSelectNavTab = (tab: ActiveNavTab) => {
+    sound.playTap();
     setActiveNavTab(tab);
     if (tab === 'tasks') {
       setActiveDateStr(toDateString(new Date()));
@@ -91,8 +92,8 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden p-3 gap-3 text-[var(--color-text-primary)] relative">
-      {/* 1. Narrow Left Column (~64px Icon Rail) - Floating glass panel */}
+    <div className="flex h-screen w-screen overflow-hidden p-3.5 gap-3.5 text-[var(--color-content-primary)] relative">
+      {/* 1. Left Navigation Floating Dock / Island */}
       <Sidebar
         activeTab={activeNavTab}
         onSelectTab={handleSelectNavTab}
@@ -101,10 +102,12 @@ export default function App() {
         onOpenNewTask={handleOpenNewTask}
         onRunRollover={() => runRollover(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        tasks={tasks}
+        onSelectDay={handleSelectDay}
       />
 
-      {/* 2. Floating Main Panel: Header + Calendar Viewport (One panel) */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden glass-panel rounded-2xl relative z-10 shadow-xl">
+      {/* 2. Floating Main Panel: Header + Calendar Viewport */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden glass-panel rounded-3xl relative z-10 shadow-2xl border border-[var(--color-border-glass)]">
         <CalendarGrid
           tasks={tasks}
           customWeekends={settings.customWeekends}

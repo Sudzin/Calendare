@@ -98,60 +98,69 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden select-none">
       {/* Top Header: Seamless within floating glass-panel */}
-      <header className="px-6 py-4 border-b border-[var(--color-border)] bg-transparent flex items-center justify-between shrink-0 select-none">
+      <header className="px-6 py-4 border-b border-[var(--color-border-glass)] bg-transparent flex items-center justify-between shrink-0 select-none">
         {/* Large Month Title + Quiet kicker */}
         <div className="flex items-baseline gap-3">
-          <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[var(--color-text-primary)] tracking-tight">
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal text-[var(--color-content-primary)] tracking-tight">
             {MONTH_NAMES_RU[month]}
-            <span className="font-sans text-lg text-[var(--color-text-secondary)] font-normal ml-2">
+            <span className="font-sans text-base text-[var(--color-content-secondary)] font-normal ml-2">
               {year}
             </span>
           </h2>
-          <span className="text-xs text-[var(--color-text-muted)] font-normal">
+          <span className="text-xs text-[var(--color-content-muted)] font-normal">
             · {formatTaskCount(todayRemainingCount)}
           </span>
         </div>
 
         {/* Navigation & Controls */}
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center bg-[var(--color-surface)]/60 rounded-xl p-1 border border-[var(--color-border)]">
+          <div className="flex items-center bg-[var(--color-surface)]/75 rounded-full p-1 border border-[var(--color-border-glass)] shadow-xs backdrop-blur-md">
             <button
               type="button"
-              onClick={handlePrev}
+              onClick={() => {
+                sound.playTap();
+                handlePrev();
+              }}
               title="Предыдущий период (←)"
-              className="p-1.5 hover:bg-[var(--color-surface-hover)] rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="p-1.5 hover:bg-[var(--color-surface-hover)] rounded-full text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={handleToday}
-              className="px-3 py-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] rounded-lg transition-colors font-medium"
+              onClick={() => {
+                sound.playTap();
+                handleToday();
+              }}
+              className="px-3.5 py-1 text-xs text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] hover:bg-[var(--color-surface-hover)] rounded-full transition-colors font-medium"
             >
               Сегодня
             </button>
             <button
               type="button"
-              onClick={handleNext}
+              onClick={() => {
+                sound.playTap();
+                handleNext();
+              }}
               title="Следующий период (→)"
-              className="p-1.5 hover:bg-[var(--color-surface-hover)] rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              className="p-1.5 hover:bg-[var(--color-surface-hover)] rounded-full text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* View mode toggle */}
-          <div className="flex bg-[var(--color-surface)]/60 p-1 rounded-xl border border-[var(--color-border)] text-xs">
+          <div className="flex bg-[var(--color-surface)]/75 p-1 rounded-full border border-[var(--color-border-glass)] text-xs shadow-xs backdrop-blur-md">
             <button
               type="button"
               onClick={() => {
-                sound.playClick();
+                sound.playTap();
                 setViewMode('month');
               }}
-              className={`px-3 py-1 rounded-lg transition-colors ${
+              className={`px-3.5 py-1 rounded-full transition-all duration-150 ${
                 viewMode === 'month'
-                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-xs'
+                  : 'text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)]'
               }`}
             >
               Месяц
@@ -159,13 +168,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             <button
               type="button"
               onClick={() => {
-                sound.playClick();
+                sound.playTap();
                 setViewMode('week');
               }}
-              className={`px-3 py-1 rounded-lg transition-colors ${
+              className={`px-3.5 py-1 rounded-full transition-all duration-150 ${
                 viewMode === 'week'
-                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-accent-text)] font-semibold shadow-xs'
+                  : 'text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)]'
               }`}
             >
               Неделя
@@ -174,15 +183,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         </div>
       </header>
 
-      {/* Weekday Names Bar (Clean & translucent) */}
-      <div className="grid grid-cols-7 border-b border-[var(--color-border)] bg-transparent text-xs font-medium text-[var(--color-text-muted)] select-none shrink-0">
+      {/* Weekday Names Bar: Open grid seamlessly aligned with calendar cells */}
+      <div className="grid grid-cols-7 border-b border-[var(--color-border-glass)] shrink-0 select-none bg-transparent">
         {WEEKDAYS_RU.map(w => {
           const isWeekend = customWeekends.includes(w.index);
           return (
             <div
               key={w.index}
-              className={`py-2.5 text-center border-r border-[var(--color-border)]/50 last:border-r-0 ${
-                isWeekend ? 'text-[var(--color-priority-critical)]' : ''
+              className={`py-3 sm:py-3.5 flex items-center justify-center text-center text-xs font-medium tracking-wider uppercase ${
+                isWeekend
+                  ? 'text-[var(--color-accent)] font-semibold'
+                  : 'text-[var(--color-content-secondary)] opacity-60'
               }`}
             >
               <span>{w.short}</span>

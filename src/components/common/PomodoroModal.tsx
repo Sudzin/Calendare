@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, Timer } from 'lucide-react';
 import { PomodoroWidget } from '../pomodoro/PomodoroWidget';
+import { sound } from '../../utils/sound';
 
 interface PomodoroModalProps {
   workMinutes: number;
@@ -18,8 +19,12 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
   onClose,
 }) => {
   useEffect(() => {
+    sound.playModalOpen();
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        sound.playTap();
+        onClose();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -29,32 +34,43 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
-      onClick={onClose}
+      className="fixed inset-0 z-50 glass-modal-backdrop flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={() => {
+        sound.playTap();
+        onClose();
+      }}
     >
       <div
-        className="bg-[var(--color-surface-glass)] backdrop-blur-md border border-[var(--color-border)] rounded-2xl w-full max-w-[400px] overflow-hidden flex flex-col shadow-xl"
+        className="glass-panel rounded-3xl w-full max-w-[420px] overflow-hidden flex flex-col shadow-2xl border border-[var(--color-border-glass)] transition-all animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--color-surface-solid)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-accent)]">
-              <Timer className="w-4 h-4" />
+        <div className="px-6 py-5 border-b border-[var(--color-border-glass)] bg-[var(--color-surface)]/60 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border-glass)] flex items-center justify-center text-[var(--color-accent)] shadow-xs">
+              <Timer className="w-5 h-5" />
             </div>
-            <h3 className="font-serif text-lg font-medium text-[var(--color-text-primary)]">
-              Фокус-таймер
-            </h3>
+            <div>
+              <h3 className="font-serif text-xl font-normal text-[var(--color-content-primary)] tracking-tight">
+                Фокус-таймер
+              </h3>
+              <p className="text-xs text-[var(--color-content-muted)] mt-0.5">
+                Техника Pomodoro
+              </p>
+            </div>
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] rounded-lg transition-colors"
+            onClick={() => {
+              sound.playTap();
+              onClose();
+            }}
+            className="p-2 text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] hover:bg-[var(--color-surface-hover)] rounded-xl transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-5 bg-[var(--color-surface-solid)]">
+        <div className="p-6 bg-[var(--color-surface-elevated)]/90 backdrop-blur-md">
           <PomodoroWidget
             workMinutes={workMinutes}
             breakMinutes={breakMinutes}

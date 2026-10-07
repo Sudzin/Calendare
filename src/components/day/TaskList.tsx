@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Clock, Check, Plus } from 'lucide-react';
-import { Task } from '../../types';
+import { Task, TaskPriority } from '../../types';
 import { PRIORITY_META } from '../../utils/priorityUtils';
+import { PriorityFilterValue, PrioritySortValue } from './PriorityFilterDropdown';
 
 interface TaskListProps {
   tasks: Task[];
@@ -9,6 +10,9 @@ interface TaskListProps {
   onSelectTask: (taskId: string) => void;
   onToggleTaskDone: (task: Task) => void;
   onOpenAddForm: () => void;
+  prioritySort?: PrioritySortValue;
+  priorityFilter?: PriorityFilterValue;
+  onResetPriorityFilter?: () => void;
 }
 
 export const TaskList: React.FC<TaskListProps> = ({
@@ -17,6 +21,9 @@ export const TaskList: React.FC<TaskListProps> = ({
   onSelectTask,
   onToggleTaskDone,
   onOpenAddForm,
+  prioritySort = 'default',
+  priorityFilter = 'all',
+  onResetPriorityFilter,
 }) => {
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
 
@@ -26,56 +33,106 @@ export const TaskList: React.FC<TaskListProps> = ({
     return true;
   });
 
+  const weight: Record<TaskPriority, number> = {
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+
   const timedTasks = filteredTasks
     .filter(t => t.type === 'timed')
-    .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
+    .sort((a, b) => {
+      if (prioritySort === 'critical-first') {
+        const diff = weight[b.priority] - weight[a.priority];
+        if (diff !== 0) return diff;
+      } else if (prioritySort === 'low-first') {
+        const diff = weight[a.priority] - weight[b.priority];
+        if (diff !== 0) return diff;
+      }
+      return (a.startTime || '00:00').localeCompare(b.startTime || '00:00');
+    });
 
-  const floatingTasks = filteredTasks.filter(t => t.type === 'floating');
+  const floatingTasks = filteredTasks
+    .filter(t => t.type === 'floating')
+    .sort((a, b) => {
+      if (prioritySort === 'critical-first') {
+        return weight[b.priority] - weight[a.priority];
+      } else if (prioritySort === 'low-first') {
+        return weight[a.priority] - weight[b.priority];
+      }
+      return 0;
+    });
 
   return (
     <div className="flex flex-col h-full bg-[var(--color-surface-solid)]">
       {/* Filter Toolbar */}
-      <div className="px-4 py-2.5 border-b border-[var(--color-border)] flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1 bg-[var(--color-app-bg)] p-1 rounded-full border border-[var(--color-border)]">
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
-              filter === 'all'
-                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-            }`}
-          >
-            Все ({tasks.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('active')}
-            className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
-              filter === 'active'
-                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-            }`}
-          >
-            Активные ({tasks.filter(t => t.status !== 'done').length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('done')}
-            className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
-              filter === 'done'
-                ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-            }`}
-          >
-            Закрытые ({tasks.filter(t => t.status === 'done').length})
-          </button>
+      <div className="px-4 py-2.5 border-b border-[var(--color-border)] flex items-center justify-between text-xs gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 bg-[var(--color-app-bg)] p-1 rounded-full border border-[var(--color-border)]">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
+                filter === 'all'
+                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Все ({tasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('active')}
+              className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
+                filter === 'active'
+                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Активные ({tasks.filter(t => t.status !== 'done').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('done')}
+              className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
+                filter === 'done'
+                  ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Закрытые ({tasks.filter(t => t.status === 'done').length})
+            </button>
+          </div>
+
+          {/* Active Priority Filter Indicator */}
+          {priorityFilter !== 'all' && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] bg-[var(--color-app-bg)] border border-[var(--color-border)]">
+              <span
+                className="w-2 h-2 rounded-full inline-block"
+                style={{ backgroundColor: PRIORITY_META[priorityFilter].colorVar }}
+              />
+              <span className="text-[var(--color-text-secondary)]">
+                {PRIORITY_META[priorityFilter].label}
+              </span>
+              {onResetPriorityFilter && (
+                <button
+                  type="button"
+                  onClick={onResetPriorityFilter}
+                  className="ml-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-priority-critical)] font-bold text-xs leading-none"
+                  title="Сбросить фильтр"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <button
           type="button"
           onClick={onOpenAddForm}
-          className="px-3 py-1 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-xl text-xs font-medium flex items-center gap-1 transition-opacity hover:opacity-90"
+          className="px-3 py-1 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-xl text-xs font-medium flex items-center gap-1 transition-opacity hover:opacity-90 shrink-0"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>Задача</span>
