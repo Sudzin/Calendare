@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ReminderScheduler } from './reminderScheduler';
-import * as notificationServiceModule from './notificationService';
 import { Task } from '../types';
 
 function createSampleTask(overrides: Partial<Task> = {}): Task {
@@ -23,7 +22,8 @@ function createSampleTask(overrides: Partial<Task> = {}): Task {
 
 describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () => {
   let scheduler: ReminderScheduler;
-  let showNotificationSpy: ReturnType<typeof vi.spyOn>;
+  let originalNotification: typeof Notification | undefined;
+  let mockNotificationConstructor: ReturnType<typeof vi.fn<(title: string, options?: NotificationOptions) => void>>;
 
   // Базовое локальное время: 7 октября 2026 года, 09:30:00
   const BASE_TIME = new Date(2026, 9, 7, 9, 30, 0, 0);
@@ -32,12 +32,37 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     vi.useFakeTimers();
     vi.setSystemTime(BASE_TIME);
 
-    showNotificationSpy = vi.spyOn(notificationServiceModule, 'showNotification').mockReturnValue(true);
+    originalNotification = (globalThis as unknown as { Notification?: typeof Notification }).Notification;
+    mockNotificationConstructor = vi.fn<(title: string, options?: NotificationOptions) => void>();
+
+    class MockNotification {
+      static permission: NotificationPermission = 'granted';
+      static requestPermission = vi.fn().mockResolvedValue('granted');
+      constructor(title: string, options?: NotificationOptions) {
+        mockNotificationConstructor(title, options);
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Notification', {
+      value: MockNotification,
+      writable: true,
+      configurable: true,
+    });
+
     scheduler = new ReminderScheduler();
   });
 
   afterEach(() => {
     scheduler.stop();
+    if (originalNotification !== undefined) {
+      Object.defineProperty(globalThis, 'Notification', {
+        value: originalNotification,
+        writable: true,
+        configurable: true,
+      });
+    } else {
+      delete (globalThis as unknown as { Notification?: unknown }).Notification;
+    }
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -74,16 +99,15 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
 
     scheduler.start(() => [task]);
 
-    expect(showNotificationSpy).not.toHaveBeenCalled();
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
 
     // Перематываем время на 30 минут вперёд (до 10:00)
     vi.advanceTimersByTime(30 * 60 * 1000);
 
-    expect(showNotificationSpy).toHaveBeenCalledTimes(1);
-    expect(showNotificationSpy).toHaveBeenCalledWith(
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+    expect(mockNotificationConstructor).toHaveBeenCalledWith(
       'Напоминание: Сдать отчёт',
-      { body: 'Время начала: 10:00' },
-      true
+      { body: 'Время начала: 10:00' }
     );
   });
 
@@ -97,7 +121,7 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
 
     scheduler.start(() => [doneTask]);
     vi.advanceTimersByTime(30 * 60 * 1000);
-    expect(showNotificationSpy).not.toHaveBeenCalled();
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
 
     // Сценарий B: задача была активна в момент планирования, но завершена до срабатывания
     let currentTasks = [
@@ -114,26 +138,23 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     currentTasks = [{ ...currentTasks[0], status: 'done' }];
 
     vi.advanceTimersByTime(45 * 60 * 1000);
-    expect(showNotificationSpy).not.toHaveBeenCalled();
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
   });
 
-  it('4. отключённые notifications не вызывают показ notification', () => {
+  it('4. отключённые notifications не вызывают реальный показ notification', () => {
     const task = createSampleTask({
       id: 'task-disabled',
       reminderTime: '10:00',
     });
 
-    // Запуск с отключенными уведомлениями
+    // Запуск с отключенными уведомлениями в настройках
     scheduler.start(() => [task], { notificationsEnabled: false });
 
+    // Время напоминания наступает
     vi.advanceTimersByTime(30 * 60 * 1000);
 
-    // showNotification вызывается с третьим параметром enabled = false (который блокирует показ)
-    expect(showNotificationSpy).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Object),
-      false
-    );
+    // Пользовательский контракт: реальное создание и показ Browser Notification не происходит
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
   });
 
   it('5. stop() полностью очищает timeout', () => {
@@ -151,7 +172,7 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     // Перематываем время через момент напоминания
     vi.advanceTimersByTime(60 * 60 * 1000);
 
-    expect(showNotificationSpy).not.toHaveBeenCalled();
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
   });
 
   it('6. повторный start() не создаёт несколько параллельных timers', () => {
@@ -168,8 +189,8 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     // Срабатывание в 10:00
     vi.advanceTimersByTime(30 * 60 * 1000);
 
-    // Уведомление должно быть отправлено строго один раз
-    expect(showNotificationSpy).toHaveBeenCalledTimes(1);
+    // Уведомление должно быть показано строго один раз
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
   });
 
   it('7. refresh() пересчитывает ближайший reminder', () => {
@@ -194,21 +215,19 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     // Продвигаем время на 15 минут (до 09:45)
     vi.advanceTimersByTime(15 * 60 * 1000);
 
-    expect(showNotificationSpy).toHaveBeenCalledTimes(1);
-    expect(showNotificationSpy).toHaveBeenCalledWith(
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+    expect(mockNotificationConstructor).toHaveBeenCalledWith(
       'Напоминание: Срочная',
-      expect.any(Object),
-      true
+      expect.any(Object)
     );
 
     // Продвигаем еще на 45 минут (до 10:30)
     vi.advanceTimersByTime(45 * 60 * 1000);
 
-    expect(showNotificationSpy).toHaveBeenCalledTimes(2);
-    expect(showNotificationSpy).toHaveBeenCalledWith(
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(2);
+    expect(mockNotificationConstructor).toHaveBeenCalledWith(
       'Напоминание: Дальняя',
-      expect.any(Object),
-      true
+      expect.any(Object)
     );
   });
 
@@ -222,7 +241,7 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
 
     // Срабатывание в 10:00
     vi.advanceTimersByTime(30 * 60 * 1000);
-    expect(showNotificationSpy).toHaveBeenCalledTimes(1);
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
 
     // Вызываем refresh повторно после срабатывания
     scheduler.refresh([task]);
@@ -231,6 +250,6 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     vi.advanceTimersByTime(60 * 60 * 1000);
 
     // Повторного вызова быть не должно
-    expect(showNotificationSpy).toHaveBeenCalledTimes(1);
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
   });
 });
