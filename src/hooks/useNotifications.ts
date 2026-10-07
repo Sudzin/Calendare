@@ -14,17 +14,8 @@ export interface UseNotificationsOptions {
   notificationsEnabled?: boolean;
 }
 
-export function useNotifications(
-  optionsOrSoundEnabled: boolean | UseNotificationsOptions = true,
-  notificationsEnabledParam = true
-) {
-  const soundEnabled = typeof optionsOrSoundEnabled === 'boolean'
-    ? optionsOrSoundEnabled
-    : (optionsOrSoundEnabled.soundEnabled ?? true);
-
-  const notificationsEnabled = typeof optionsOrSoundEnabled === 'object'
-    ? (optionsOrSoundEnabled.notificationsEnabled ?? true)
-    : notificationsEnabledParam;
+export function useNotifications(options: UseNotificationsOptions = {}) {
+  const { soundEnabled = true, notificationsEnabled = true } = options;
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 

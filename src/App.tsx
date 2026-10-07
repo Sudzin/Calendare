@@ -22,7 +22,10 @@ import { ToastContainer } from './components/common/ToastContainer';
 export default function App() {
   const { settings, updateSettings, toggleTheme } = useSettings();
   const { tasks, addTask, updateTask, deleteTask, setAllTasks } = useTasks();
-  const { toasts, pushToast, dismissToast } = useNotifications(settings.soundEnabled, settings.notificationsEnabled);
+  const { toasts, pushToast, dismissToast } = useNotifications({
+    soundEnabled: settings.soundEnabled,
+    notificationsEnabled: settings.notificationsEnabled,
+  });
 
   const {
     runRollover,
