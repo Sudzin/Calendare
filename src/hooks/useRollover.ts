@@ -1,14 +1,10 @@
 import { useState, useCallback } from 'react';
 import { Task } from '../types';
 import { getTodayDate } from '../utils/date';
-import { getNextPriority } from '../utils/priorityUtils';
+import { rolloverTasks, EscalationRecord, RolloverResult } from '../utils/rollover';
 import { sound } from '../utils/sound';
 
-export interface EscalationRecord {
-  task: Task;
-  oldPriority: string;
-  newPriority: string;
-}
+export type { EscalationRecord, RolloverResult };
 
 export function useRollover(
   tasks: Task[],
@@ -21,9 +17,9 @@ export function useRollover(
 
   const runRollover = useCallback((forceOpenModal = true) => {
     const todayStr = getTodayDate();
-    const overdueTasks = tasks.filter(t => t.date < todayStr && t.status !== 'done');
+    const { updatedTasks, escalatedRecords } = rolloverTasks(tasks, todayStr);
 
-    if (overdueTasks.length === 0) {
+    if (escalatedRecords.length === 0) {
       if (forceOpenModal) {
         setEscalatedTasks([]);
         setIsRolloverAlertOpen(true);
@@ -31,36 +27,8 @@ export function useRollover(
       return;
     }
 
-    const records: EscalationRecord[] = [];
-
-    const updated = tasks.map(t => {
-      if (t.date < todayStr && t.status !== 'done') {
-        const oldPriority = t.priority;
-        const newPriority = getNextPriority(t.priority);
-
-        const updatedTask: Task = {
-          ...t,
-          date: todayStr,
-          priority: newPriority,
-          isEscalated: true,
-          escalationReason: `Авто-перенос с ${t.date} (+1 уровень приоритета)`,
-          rolloverCount: (t.rolloverCount || 0) + 1,
-          updatedAt: new Date().toISOString(),
-        };
-
-        records.push({
-          task: updatedTask,
-          oldPriority,
-          newPriority,
-        });
-
-        return updatedTask;
-      }
-      return t;
-    });
-
-    onTasksUpdated(updated);
-    setEscalatedTasks(records);
+    onTasksUpdated(updatedTasks);
+    setEscalatedTasks(escalatedRecords);
     setIsRolloverAlertOpen(true);
 
     if (soundEnabled) {
@@ -69,7 +37,7 @@ export function useRollover(
 
     pushNotification(
       'Перенос долгов',
-      `Перенесено ${records.length} задач с повышением приоритета.`
+      `Перенесено ${escalatedRecords.length} задач с повышением приоритета.`
     );
   }, [tasks, onTasksUpdated, pushNotification, soundEnabled]);
 
