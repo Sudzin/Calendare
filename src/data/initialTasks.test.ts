@@ -1,7 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getInitialTasks } from './initialTasks';
 
 describe('initialTasks', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('возвращает задачи с корректными локальными датами и ISO-таймстемпами', () => {
     vi.setSystemTime(new Date('2026-10-07T14:30:00.000Z'));
 
@@ -18,7 +26,5 @@ describe('initialTasks', () => {
       expect(Number.isNaN(Date.parse(task.createdAt))).toBe(false);
       expect(Number.isNaN(Date.parse(task.updatedAt))).toBe(false);
     }
-
-    vi.useRealTimers();
   });
 });
