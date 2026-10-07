@@ -33,7 +33,13 @@ export default function App() {
     escalatedTasks,
     isRolloverAlertOpen,
     setIsRolloverAlertOpen,
-  } = useRollover(tasks, setAllTasks, pushToast, settings.soundEnabled);
+  } = useRollover(
+    tasks,
+    setAllTasks,
+    pushToast,
+    settings.soundEnabled,
+    settings.autoRollover
+  );
 
   useReminderScheduler(tasks, {
     notificationsEnabled: settings.notificationsEnabled,
@@ -50,17 +56,6 @@ export default function App() {
   const [isDayWorkspaceOpen, setIsDayWorkspaceOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPomodoroModalOpen, setIsPomodoroModalOpen] = useState(false);
-
-  // Auto-rollover on initial app load if enabled
-  useEffect(() => {
-    if (settings.autoRollover) {
-      const todayStr = getTodayDate();
-      const hasOverdue = tasks.some(t => t.date < todayStr && t.status !== 'done');
-      if (hasOverdue) {
-        runRollover(false);
-      }
-    }
-  }, []);
 
   // Handlers
   const handleSelectDay = (dateStr: string) => {
