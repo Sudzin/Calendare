@@ -75,30 +75,26 @@ export class TaskRepository {
   /**
    * Обновление существующей задачи в хранилище.
    * Поле `updatedAt` автоматически устанавливается в текущее время (ISO-строка).
+   * Выбрасывает ошибку, если задача с указанным ID не найдена.
    */
   static update(updated: UpdateTaskInput): Task {
-    const now = new Date().toISOString();
     const currentTasks = TaskRepository.getAll();
-    let updatedTaskResult: Task | undefined;
+    const existingTask = currentTasks.find(t => t.id === updated.id);
 
-    const updatedTasks = currentTasks.map(t => {
-      if (t.id === updated.id) {
-        updatedTaskResult = {
-          ...t,
-          ...updated,
-          updatedAt: now,
-        };
-        return updatedTaskResult;
-      }
-      return t;
-    });
-
-    if (!updatedTaskResult) {
-      updatedTaskResult = {
-        ...updated,
-        updatedAt: now,
-      } as Task;
+    if (!existingTask) {
+      throw new Error(`Task not found: ${updated.id}`);
     }
+
+    const now = new Date().toISOString();
+    const updatedTaskResult: Task = {
+      ...existingTask,
+      ...updated,
+      updatedAt: now,
+    };
+
+    const updatedTasks = currentTasks.map(t =>
+      t.id === updated.id ? updatedTaskResult : t
+    );
 
     TaskRepository.saveAll(updatedTasks);
     return updatedTaskResult;

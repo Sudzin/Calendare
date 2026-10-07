@@ -369,6 +369,25 @@ describe('TaskRepository', () => {
       expect(stored?.status).toBe('done');
       expect(stored?.updatedAt).toBe(updated.updatedAt);
     });
+
+    it('выбрасывает ошибку при попытке обновить несуществующую задачу и не меняет хранилище', () => {
+      const existingTask = createSampleTask({ id: 'task-existing-1', title: 'Существующая задача' });
+      TaskRepository.saveAll([existingTask]);
+
+      expect(() => {
+        TaskRepository.update({
+          id: 'non-existent-id-999',
+          title: 'Попытка обновления несуществующей задачи',
+        });
+      }).toThrow('Task not found: non-existent-id-999');
+
+      // Проверяем, что количество задач и существующая задача не изменились
+      const allTasks = TaskRepository.getAll();
+      expect(allTasks).toHaveLength(1);
+      expect(allTasks[0]).toEqual(existingTask);
+      expect(TaskRepository.getById('task-existing-1')).toEqual(existingTask);
+      expect(TaskRepository.getById('non-existent-id-999')).toBeUndefined();
+    });
   });
 
   describe('5. Удаление (delete)', () => {
