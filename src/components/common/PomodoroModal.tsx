@@ -22,7 +22,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
     sound.playModalOpen();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        sound.playTap();
+        sound.playModalClose();
         onClose();
       }
     };
@@ -36,7 +36,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
       aria-modal="true"
       className="fixed inset-0 z-50 glass-modal-backdrop flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={() => {
-        sound.playTap();
+        sound.playModalClose();
         onClose();
       }}
     >
@@ -61,7 +61,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              sound.playTap();
+              sound.playModalClose();
               onClose();
             }}
             className="p-2 text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] hover:bg-[var(--color-surface-hover)] rounded-xl transition-colors"

@@ -61,12 +61,14 @@ export const WeeklySummaryWidget: React.FC<WeeklySummaryWidgetProps> = ({
 
     const handlePointerDown = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        sound.playModalClose();
         setIsOpen(false);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        sound.playModalClose();
         setIsOpen(false);
       }
     };
@@ -81,7 +83,7 @@ export const WeeklySummaryWidget: React.FC<WeeklySummaryWidgetProps> = ({
 
   const handleToggle = () => {
     if (!isOpen) sound.playModalOpen();
-    else sound.playTap();
+    else sound.playModalClose();
     setIsOpen(prev => !prev);
   };
 

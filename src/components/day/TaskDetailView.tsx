@@ -51,7 +51,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
         <button
           type="button"
           onClick={() => {
-            sound.playClick();
+            sound.playDelete();
             onDeleteTask(task.id);
           }}
           title="Удалить задачу"
@@ -95,7 +95,11 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                 key={st}
                 type="button"
                 onClick={() => {
-                  sound.playClick();
+                  if (st === 'done' && task.status !== 'done') {
+                    sound.playTaskComplete();
+                  } else if (task.status !== st) {
+                    sound.playTabSwitch();
+                  }
                   onUpdateTask({ ...task, status: st });
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-colors ${
@@ -124,7 +128,9 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                   key={pr}
                   type="button"
                   onClick={() => {
-                    sound.playClick();
+                    if (task.priority !== pr) {
+                      sound.playTabSwitch();
+                    }
                     onUpdateTask({ ...task, priority: pr });
                   }}
                   className={`px-1.5 py-1 rounded text-[10px] transition-colors font-medium border ${

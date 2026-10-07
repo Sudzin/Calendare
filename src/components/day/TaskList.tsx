@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock, Check, Plus } from 'lucide-react';
 import { Task, TaskPriority } from '../../types';
 import { PRIORITY_META } from '../../utils/priorityUtils';
+import { sound } from '../../utils/sound';
 import { PriorityFilterValue, PrioritySortValue } from './PriorityFilterDropdown';
 
 interface TaskListProps {
@@ -72,7 +73,10 @@ export const TaskList: React.FC<TaskListProps> = ({
           <div className="flex items-center gap-1 bg-[var(--color-app-bg)] p-1 rounded-full border border-[var(--color-border)]">
             <button
               type="button"
-              onClick={() => setFilter('all')}
+              onClick={() => {
+                if (filter !== 'all') sound.playTabSwitch();
+                setFilter('all');
+              }}
               className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
                 filter === 'all'
                   ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
@@ -83,7 +87,10 @@ export const TaskList: React.FC<TaskListProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setFilter('active')}
+              onClick={() => {
+                if (filter !== 'active') sound.playTabSwitch();
+                setFilter('active');
+              }}
               className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
                 filter === 'active'
                   ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'
@@ -94,7 +101,10 @@ export const TaskList: React.FC<TaskListProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setFilter('done')}
+              onClick={() => {
+                if (filter !== 'done') sound.playTabSwitch();
+                setFilter('done');
+              }}
               className={`px-2.5 py-0.5 rounded-full text-[11px] transition-colors ${
                 filter === 'done'
                   ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-medium'

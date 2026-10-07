@@ -46,7 +46,7 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
     sound.playModalOpen();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        sound.playTap();
+        sound.playModalClose();
         onClose();
       }
     };
@@ -65,14 +65,14 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
   const completedCount = dayTasks.filter(t => t.status === 'done').length;
 
   const handleSelectTask = (id: string) => {
-    sound.playTap();
+    sound.playTabSwitch();
     setSelectedTaskId(id);
     setActiveTab('detail');
   };
 
   const handleToggleTaskDone = (task: Task) => {
     const isNowDone = task.status !== 'done';
-    if (isNowDone) sound.playComplete();
+    if (isNowDone) sound.playTaskComplete();
     else sound.playTap();
 
     onUpdateTask({
@@ -82,7 +82,7 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
   };
 
   const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    sound.playComplete();
+    sound.playTaskComplete();
     onAddTask(taskData);
     setIsAddingTask(false);
   };
@@ -93,7 +93,7 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
       aria-modal="true"
       className="fixed inset-0 z-50 glass-modal-backdrop flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
       onClick={() => {
-        sound.playTap();
+        sound.playModalClose();
         onClose();
       }}
     >
@@ -110,7 +110,10 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
             onChangeDate(newDate);
             setSelectedTaskId(null);
           }}
-          onClose={onClose}
+          onClose={() => {
+            sound.playModalClose();
+            onClose();
+          }}
         />
 
         {/* View Switcher Tabs & Priority Filter/Sort Dropdown */}
@@ -118,7 +121,10 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveTab('list')}
+              onClick={() => {
+                if (activeTab !== 'list') sound.playTabSwitch();
+                setActiveTab('list');
+              }}
               className={`px-3 py-1 rounded-full transition-colors text-xs font-medium ${
                 activeTab === 'list'
                   ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/30'
@@ -129,7 +135,10 @@ export const DayWorkspaceModal: React.FC<DayWorkspaceModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('detail')}
+              onClick={() => {
+                if (activeTab !== 'detail') sound.playTabSwitch();
+                setActiveTab('detail');
+              }}
               className={`px-3 py-1 rounded-full transition-colors text-xs font-medium truncate max-w-[200px] sm:max-w-[260px] ${
                 activeTab === 'detail'
                   ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/30'

@@ -154,7 +154,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             <button
               type="button"
               onClick={() => {
-                sound.playTap();
+                if (viewMode !== 'month') sound.playTabSwitch();
                 setViewMode('month');
               }}
               className={`px-3.5 py-1 rounded-full transition-all duration-150 ${
@@ -168,7 +168,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             <button
               type="button"
               onClick={() => {
-                sound.playTap();
+                if (viewMode !== 'week') sound.playTabSwitch();
                 setViewMode('week');
               }}
               className={`px-3.5 py-1 rounded-full transition-all duration-150 ${

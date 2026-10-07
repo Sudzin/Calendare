@@ -31,7 +31,6 @@ export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, o
   };
 
   const handleCheckboxToggle = (index: number) => {
-    sound.playClick();
     const lines = content.split('\n');
     let checkboxCount = 0;
     const newLines = lines.map(line => {
@@ -40,6 +39,11 @@ export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, o
         if (checkboxCount === index) {
           const isChecked = match[2].toLowerCase() === 'x';
           const newMarker = isChecked ? ' ' : 'x';
+          if (!isChecked) {
+            sound.playTaskComplete();
+          } else {
+            sound.playTap();
+          }
           checkboxCount++;
           return `${match[1]}[${newMarker}]${match[3]}`;
         }
@@ -227,7 +231,10 @@ export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, o
         <div className="flex items-center gap-0.5 bg-[var(--color-app-bg)] p-0.5 rounded border border-[var(--color-border)]">
           <button
             type="button"
-            onClick={() => setViewMode('editor')}
+            onClick={() => {
+              if (viewMode !== 'editor') sound.playTabSwitch();
+              setViewMode('editor');
+            }}
             className={`px-2 py-0.5 rounded text-[11px] transition-colors flex items-center gap-1 ${
               viewMode === 'editor' ? 'bg-[var(--color-surface)] text-[var(--color-text-primary)] font-medium' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
@@ -237,7 +244,10 @@ export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, o
           </button>
           <button
             type="button"
-            onClick={() => setViewMode('preview')}
+            onClick={() => {
+              if (viewMode !== 'preview') sound.playTabSwitch();
+              setViewMode('preview');
+            }}
             className={`px-2 py-0.5 rounded text-[11px] transition-colors flex items-center gap-1 ${
               viewMode === 'preview' ? 'bg-[var(--color-surface)] text-[var(--color-text-primary)] font-medium' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
@@ -247,7 +257,10 @@ export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, o
           </button>
           <button
             type="button"
-            onClick={() => setViewMode('split')}
+            onClick={() => {
+              if (viewMode !== 'split') sound.playTabSwitch();
+              setViewMode('split');
+            }}
             className={`hidden sm:flex px-2 py-0.5 rounded text-[11px] transition-colors items-center gap-1 ${
               viewMode === 'split' ? 'bg-[var(--color-surface)] text-[var(--color-text-primary)] font-medium' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}

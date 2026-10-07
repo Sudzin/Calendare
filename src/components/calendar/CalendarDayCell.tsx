@@ -2,7 +2,6 @@ import React from 'react';
 import { Task } from '../../types';
 import { DayWorkload } from '../../types';
 import { PRIORITY_META } from '../../utils/priorityUtils';
-import { sound } from '../../utils/sound';
 
 interface CalendarDayCellProps {
   dayNumber: number;
@@ -30,11 +29,9 @@ export const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
   return (
     <div
       onClick={() => {
-        sound.playTap();
         onSelectDay(dateStr);
       }}
       onDoubleClick={() => {
-        sound.playTap();
         onOpenFullDay(dateStr);
       }}
       className={`min-h-[92px] sm:min-h-[112px] p-2 flex flex-col justify-between transition-colors cursor-pointer group relative border-r border-b border-[var(--color-border-glass)] select-none bg-[var(--color-surface)]/20 ${

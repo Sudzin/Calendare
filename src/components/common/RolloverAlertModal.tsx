@@ -18,7 +18,7 @@ export const RolloverAlertModal: React.FC<RolloverAlertModalProps> = ({
     sound.playAlert();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        sound.playTap();
+        sound.playModalClose();
         onClose();
       }
     };
@@ -32,7 +32,7 @@ export const RolloverAlertModal: React.FC<RolloverAlertModalProps> = ({
       aria-modal="true"
       className="fixed inset-0 z-50 glass-modal-backdrop flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={() => {
-        sound.playTap();
+        sound.playModalClose();
         onClose();
       }}
     >
@@ -53,7 +53,7 @@ export const RolloverAlertModal: React.FC<RolloverAlertModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              sound.playTap();
+              sound.playModalClose();
               onClose();
             }}
             className="p-2 text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] hover:bg-[var(--color-surface-hover)] rounded-xl transition-colors"
@@ -110,7 +110,7 @@ export const RolloverAlertModal: React.FC<RolloverAlertModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              sound.playTap();
+              sound.playModalClose();
               onClose();
             }}
             className="px-5 py-2 bg-[var(--color-accent)] hover:opacity-95 text-[var(--color-accent-text)] text-xs font-medium rounded-full flex items-center gap-1.5 transition-all shadow-md active:scale-95"

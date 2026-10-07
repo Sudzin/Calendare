@@ -9,7 +9,6 @@ import { useTasks } from './hooks/useTasks';
 import { useNotifications } from './hooks/useNotifications';
 import { useRollover } from './hooks/useRollover';
 import { toDateString } from './utils/dateUtils';
-import { sound } from './utils/sound';
 
 import { Sidebar, ActiveNavTab } from './components/layout/Sidebar';
 import { CalendarGrid } from './components/calendar/CalendarGrid';
@@ -57,20 +56,17 @@ export default function App() {
 
   // Handlers
   const handleSelectDay = (dateStr: string) => {
-    sound.playTap();
     setActiveDateStr(dateStr);
     setIsDayPreviewOpen(true);
   };
 
   const handleOpenFullDay = (dateStr: string) => {
-    sound.playTap();
     setActiveDateStr(dateStr);
     setIsDayPreviewOpen(false);
     setIsDayWorkspaceOpen(true);
   };
 
   const handleOpenNewTask = () => {
-    sound.playTap();
     setActiveDateStr(toDateString(new Date()));
     setIsDayPreviewOpen(false);
     setIsDayWorkspaceOpen(true);
@@ -78,7 +74,6 @@ export default function App() {
   };
 
   const handleSelectNavTab = (tab: ActiveNavTab) => {
-    sound.playTap();
     setActiveNavTab(tab);
     if (tab === 'tasks') {
       setActiveDateStr(toDateString(new Date()));

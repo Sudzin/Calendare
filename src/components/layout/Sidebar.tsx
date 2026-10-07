@@ -104,7 +104,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => {
-              sound.playTap();
+              if (activeTab !== 'calendar') sound.playTabSwitch();
+              else sound.playTap();
               onSelectTab('calendar');
             }}
             title="Календарь"
@@ -121,7 +122,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => {
-              sound.playTap();
+              if (activeTab !== 'tasks') sound.playTabSwitch();
+              else sound.playTap();
               onSelectTab('tasks');
             }}
             title="Список задач"
@@ -138,7 +140,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => {
-              sound.playTap();
+              if (activeTab !== 'pomodoro') sound.playTabSwitch();
+              else sound.playTap();
               onSelectTab('pomodoro');
             }}
             title="Таймер / Фокус Pomodoro"
