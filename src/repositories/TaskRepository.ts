@@ -1,4 +1,5 @@
 import { Task } from '../types';
+import { validateBackup } from '../utils/backupValidation';
 
 export const TASK_STORAGE_KEY = 'chronos_tasks';
 
@@ -122,6 +123,17 @@ export class TaskRepository {
     }
   }
 
+  /**
+   * Безопасный импорт задач из объекта резервной копии.
+   * Валидирует структуру и каждую задачу перед записью.
+   * Если валидация не прошла — выбрасывает исключение, не изменяя существующие данные.
+   */
+  static importFromBackup(data: unknown): Task[] {
+    const validated = validateBackup(data);
+    TaskRepository.saveAll(validated.tasks);
+    return validated.tasks;
+  }
+
   // Алиасы для расширенной совместимости
   static getAllTasks(): Task[] { return TaskRepository.getAll(); }
   static getTaskById(id: string): Task | undefined { return TaskRepository.getById(id); }
@@ -129,6 +141,7 @@ export class TaskRepository {
   static updateTask(task: UpdateTaskInput): Task { return TaskRepository.update(task); }
   static deleteTask(taskId: string): void { TaskRepository.delete(taskId); }
   static saveTasks(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
+  static importTasks(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
 
   // Экземплярные методы для работы через объект
   generateId(): string { return generateTaskId(); }
@@ -144,6 +157,8 @@ export class TaskRepository {
   deleteTask(taskId: string): void { TaskRepository.delete(taskId); }
   saveAll(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
   saveTasks(tasks: Task[]): void { TaskRepository.saveAll(tasks); }
+  importFromBackup(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
+  importTasks(data: unknown): Task[] { return TaskRepository.importFromBackup(data); }
 }
 
 export const taskRepository = new TaskRepository();

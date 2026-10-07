@@ -14,6 +14,7 @@ import {
 import { AppSettings, Task, ThemePreset } from '../../types';
 import { WEEKDAYS_RU } from '../../utils/dateUtils';
 import { sound } from '../../utils/sound';
+import { validateBackup } from '../../utils/backupValidation';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -97,17 +98,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const reader = new FileReader();
     reader.onload = event => {
       try {
-        const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.tasks && Array.isArray(parsed.tasks)) {
-          sound.playComplete();
-          onImportTasks(parsed.tasks);
-          if (parsed.settings) {
-            onSaveSettings(parsed.settings);
-            setLocalSettings(parsed.settings);
-          }
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+        const validated = validateBackup(parsed);
+
+        sound.playComplete();
+        onImportTasks(validated.tasks);
+        if (validated.settings) {
+          onSaveSettings(validated.settings);
+          setLocalSettings(validated.settings);
         }
-      } catch {
-        alert('Не удалось прочитать файл резервной копии. Проверьте JSON-формат.');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Проверьте JSON-формат файла.';
+        alert(`Не удалось импортировать резервную копию: ${message}`);
+      } finally {
+        e.target.value = '';
       }
     };
     reader.readAsText(file);
