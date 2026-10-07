@@ -38,6 +38,7 @@ const mockStorage = new LocalStorageMock();
 function renderHook<T>(hookFn: () => T) {
   let hookIndex = 0;
   const stateList: any[] = [];
+  const refList: any[] = [];
   const effectCallbacks: { fn: () => void | (() => void); deps?: unknown[]; prevDeps?: unknown[] }[] = [];
   const cleanups: (() => void)[] = [];
   let isMounted = true;
@@ -58,7 +59,10 @@ function renderHook<T>(hookFn: () => T) {
     },
     useRef: <V>(initial: V) => {
       const idx = hookIndex++;
-      return { current: initial };
+      if (idx >= refList.length) {
+        refList[idx] = { current: initial };
+      }
+      return refList[idx];
     },
     useCallback: <F extends Function>(fn: F) => fn,
     useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
@@ -153,12 +157,19 @@ describe('useTasks hook', () => {
     expect(stored[0].id).toBe('task-init');
   });
 
+  it('не вызывает TaskRepository.saveAll при первичном монтировании', () => {
+    const saveAllSpy = vi.spyOn(TaskRepository, 'saveAll');
+    renderHook(() => useTasks());
+    expect(saveAllSpy).not.toHaveBeenCalled();
+    saveAllSpy.mockRestore();
+  });
+
   it('addTask добавляет задачу и сохраняет через useEffect', () => {
     const saveAllSpy = vi.spyOn(TaskRepository, 'saveAll');
     const { result } = renderHook(() => useTasks());
 
-    // Начальный вызов эффекта при монтировании
-    expect(saveAllSpy).toHaveBeenCalledTimes(1);
+    // Начальный вызов эффекта при монтировании не производит запись в localStorage
+    expect(saveAllSpy).not.toHaveBeenCalled();
 
     const newTask = result.current.addTask({
       title: 'Новая задача',
@@ -175,7 +186,7 @@ describe('useTasks hook', () => {
     expect(result.current.tasks[0].title).toBe('Новая задача');
 
     // useEffect сработал после изменения tasks
-    expect(saveAllSpy).toHaveBeenCalledTimes(2);
+    expect(saveAllSpy).toHaveBeenCalledTimes(1);
     expect(saveAllSpy).toHaveBeenLastCalledWith(result.current.tasks);
 
     saveAllSpy.mockRestore();
@@ -208,7 +219,44 @@ describe('useTasks hook', () => {
     expect(stored[0].title).toBe('После изменения');
   });
 
-  it('deleteTask удаляет задачу и сохраняет через useEffect', () => {
+  it('updateTask возвращает актуальный объект задачи и поддерживает последовательные обновления', () => {
+    const { result } = renderHook(() => useTasks());
+
+    const task = result.current.addTask({
+      title: 'Задача для проверки обновления',
+      type: 'floating',
+      date: '2026-10-07',
+      priority: 'low',
+      status: 'todo',
+      notes: '',
+      pomodoroCount: 0,
+    });
+
+    const firstUpdate = result.current.updateTask({
+      id: task.id,
+      title: 'Заголовок изменен',
+      priority: 'high',
+    });
+
+    expect(firstUpdate).toBeDefined();
+    expect(firstUpdate.id).toBe(task.id);
+    expect(firstUpdate.title).toBe('Заголовок изменен');
+    expect(firstUpdate.priority).toBe('high');
+    expect(result.current.tasks[0].title).toBe('Заголовок изменен');
+
+    const secondUpdate = result.current.updateTask({
+      id: task.id,
+      status: 'done',
+    });
+
+    expect(secondUpdate).toBeDefined();
+    expect(secondUpdate.status).toBe('done');
+    expect(secondUpdate.title).toBe('Заголовок изменен');
+    expect(result.current.tasks[0].status).toBe('done');
+  });
+
+  it('deleteTask удаляет задачу через TaskRepository.delete и сохраняет через useEffect', () => {
+    const deleteSpy = vi.spyOn(TaskRepository, 'delete');
     const { result } = renderHook(() => useTasks());
 
     const task = result.current.addTask({
@@ -225,9 +273,12 @@ describe('useTasks hook', () => {
 
     result.current.deleteTask(task.id);
 
+    expect(deleteSpy).toHaveBeenCalledWith(task.id, expect.any(Array));
     expect(result.current.tasks).toHaveLength(0);
     const stored = JSON.parse(mockStorage.getItem(TASK_STORAGE_KEY)!);
     expect(stored).toEqual([]);
+
+    deleteSpy.mockRestore();
   });
 
   it('setAllTasks заменяет все задачи и сохраняет через useEffect', () => {

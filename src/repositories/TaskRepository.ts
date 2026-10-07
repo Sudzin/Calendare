@@ -118,6 +118,7 @@ export class TaskRepository {
       ...existingTask,
       ...definedUpdates,
       id: existingTask.id,
+      createdAt: existingTask.createdAt,
       updatedAt: now,
     } as Task;
 

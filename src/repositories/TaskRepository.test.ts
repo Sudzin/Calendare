@@ -400,6 +400,20 @@ describe('TaskRepository', () => {
       expect(unchangedTask2).toEqual(task2);
     });
 
+    it('сохраняет createdAt существующей задачи неизменным, даже если в update передано другое значение', () => {
+      const originalCreatedAt = '2025-01-01T08:00:00.000Z';
+      const task = createSampleTask({ id: 'task-created-at-check', createdAt: originalCreatedAt });
+      TaskRepository.saveAll([task]);
+
+      const updated = TaskRepository.update({
+        ...task,
+        title: 'Обновленная задача',
+        createdAt: '2026-12-31T23:59:59.000Z',
+      });
+
+      expect(updated.createdAt).toBe(originalCreatedAt);
+    });
+
     it('автоматически обновляет updatedAt при вызове update, даже если передано старое значение', () => {
       const oldUpdatedAt = '2020-01-01T00:00:00.000Z';
       const task = createSampleTask({ id: 'task-time-check', updatedAt: oldUpdatedAt });

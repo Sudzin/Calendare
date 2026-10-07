@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task } from '../types';
 import { TaskRepository, UpdateTaskInput } from '../repositories/TaskRepository';
 
@@ -6,9 +6,14 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
     return TaskRepository.getAll();
   });
+  const isFirstRender = useRef(true);
 
-  // Единственный писатель в localStorage — useEffect по tasks
+  // Единственный писатель в localStorage — useEffect по tasks (пропускает первичный рендер при монтировании)
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     TaskRepository.saveAll(tasks);
   }, [tasks]);
 
@@ -19,17 +24,14 @@ export function useTasks() {
   }, []);
 
   const updateTask = useCallback((updated: UpdateTaskInput): Task => {
-    let resultTask: Task;
-    setTasks(prev => {
-      const existing = prev.find(t => t.id === updated.id);
-      resultTask = TaskRepository.update(updated, existing);
-      return prev.map(t => (t.id === resultTask.id ? resultTask : t));
-    });
-    return resultTask!;
-  }, []);
+    const existing = tasks.find(t => t.id === updated.id);
+    const updatedTask = TaskRepository.update(updated, existing);
+    setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t)));
+    return updatedTask;
+  }, [tasks]);
 
   const deleteTask = useCallback((taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setTasks(prev => TaskRepository.delete(taskId, prev));
   }, []);
 
   const setAllTasks = useCallback((newTasks: Task[]) => {
