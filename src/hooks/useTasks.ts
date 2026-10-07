@@ -1,56 +1,34 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Task } from '../types';
-import { getInitialTasks } from '../data/initialTasks';
-
-const STORAGE_KEY = 'chronos_tasks';
+import { TaskRepository } from '../repositories/TaskRepository';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw !== null) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to parse stored tasks:', e);
-    }
-    return getInitialTasks();
+    return TaskRepository.getAll();
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    } catch (e) {
-      console.error('Failed to store tasks:', e);
-    }
+    TaskRepository.saveAll(tasks);
   }, [tasks]);
 
   const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task => {
-    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'task-' + Date.now();
-    const newTask: Task = {
-      ...taskData,
-      id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setTasks(prev => [newTask, ...prev]);
+    const newTask = TaskRepository.create(taskData);
+    setTasks(prev => [newTask, ...prev.filter(t => t.id !== newTask.id)]);
     return newTask;
   }, []);
 
   const updateTask = useCallback((updated: Task) => {
-    const withUpdatedTime: Task = {
-      ...updated,
-      updatedAt: new Date().toISOString(),
-    };
-    setTasks(prev => prev.map(t => (t.id === updated.id ? withUpdatedTime : t)));
+    const updatedTask = TaskRepository.update(updated);
+    setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t)));
   }, []);
 
   const deleteTask = useCallback((taskId: string) => {
+    TaskRepository.delete(taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }, []);
 
   const setAllTasks = useCallback((newTasks: Task[]) => {
+    TaskRepository.saveAll(newTasks);
     setTasks(newTasks);
   }, []);
 

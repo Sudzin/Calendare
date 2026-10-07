@@ -108,8 +108,8 @@ export const WeeklySummaryWidget: React.FC<WeeklySummaryWidgetProps> = ({
           completed={completedCount}
           pending={pendingCount}
           total={totalCount}
-          size={38}
-          strokeWidth={3.5}
+          size={40}
+          strokeWidth={3.8}
           showText={true}
         />
       </button>

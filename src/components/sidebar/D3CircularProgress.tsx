@@ -47,7 +47,7 @@ export const D3CircularProgress: React.FC<D3CircularProgressProps> = ({
     const ratio = total > 0 ? Math.min(1, Math.max(0, completed / total)) : 0;
     const targetAngle = ratio * twoPi;
 
-    // Background track arc (represents 100% or total baseline)
+    // Background track arc (represents baseline)
     const backgroundArc = d3.arc<any>()
       .innerRadius(innerRadius)
       .outerRadius(outerRadius)
@@ -56,21 +56,22 @@ export const D3CircularProgress: React.FC<D3CircularProgressProps> = ({
 
     g.append('path')
       .attr('d', backgroundArc({}))
-      .attr('fill', 'var(--color-border)')
-      .attr('opacity', 0.45);
+      .attr('fill', 'var(--color-border-glass)')
+      .attr('opacity', 0.65);
 
-    // Pending portion subtle highlight if there are pending tasks
+    // Active (pending) tasks arc: visualizes the active workload portion of the ring
     if (pending > 0 && total > 0) {
       const pendingArc = d3.arc<any>()
         .innerRadius(innerRadius)
         .outerRadius(outerRadius)
         .startAngle(targetAngle)
-        .endAngle(twoPi);
+        .endAngle(twoPi)
+        .cornerRadius(stroke / 2);
 
       g.append('path')
         .attr('d', pendingArc({}))
-        .attr('fill', 'var(--color-surface-hover)')
-        .attr('opacity', 0.55);
+        .attr('fill', 'var(--color-accent)')
+        .attr('opacity', 0.25);
     }
 
     // Progress arc for completed tasks
@@ -78,7 +79,7 @@ export const D3CircularProgress: React.FC<D3CircularProgressProps> = ({
       .innerRadius(innerRadius)
       .outerRadius(outerRadius)
       .startAngle(0)
-      .cornerRadius(completed > 0 && completed < total ? stroke / 2 : 0);
+      .cornerRadius(completed > 0 ? stroke / 2 : 0);
 
     if (targetAngle > 0) {
       const progressPath = g.append('path')
@@ -106,13 +107,13 @@ export const D3CircularProgress: React.FC<D3CircularProgressProps> = ({
     // Center ratio / percentage label
     if (showText) {
       const percent = Math.round(ratio * 100);
-      const fontSize = size < 50 ? '9px' : size < 80 ? '13px' : '17px';
+      const fontSize = size < 50 ? '10px' : size < 80 ? '14px' : '18px';
       
       g.append('text')
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'central')
-        .attr('class', 'font-mono font-medium tabular-nums')
-        .attr('fill', 'var(--color-text-primary)')
+        .attr('class', 'font-mono font-semibold tabular-nums')
+        .attr('fill', 'var(--color-content-primary)')
         .attr('font-size', fontSize)
         .text(total === 0 ? '0%' : `${percent}%`);
     }

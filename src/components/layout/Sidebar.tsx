@@ -154,10 +154,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Middle: Weekly Summary D3 Circular Progress Widget */}
-      <div className="flex flex-col items-center gap-2.5 w-full my-auto">
-        <div className="w-7 h-px bg-[var(--color-border-glass)] opacity-60" />
+      <div className="flex flex-col items-center gap-1.5 w-full my-auto">
+        <div className="w-7 h-px bg-[var(--color-border-glass)] opacity-60 mb-0.5" />
         <WeeklySummaryWidget tasks={tasks} onSelectDay={onSelectDay} />
-        <div className="w-7 h-px bg-[var(--color-border-glass)] opacity-60" />
+        <span className="text-[9px] font-mono text-[var(--color-content-muted)] tracking-wider uppercase select-none">
+          Неделя
+        </span>
+        <div className="w-7 h-px bg-[var(--color-border-glass)] opacity-60 mt-0.5" />
       </div>
 
       {/* Bottom Group: Rollover, Theme Switcher, Settings */}
