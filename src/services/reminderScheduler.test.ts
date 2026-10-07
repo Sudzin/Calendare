@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ReminderScheduler } from './reminderScheduler';
+import * as React from 'react';
+import { ReminderScheduler, reminderScheduler } from './reminderScheduler';
+import { useReminderScheduler } from '../hooks/useReminderScheduler';
 import { Task } from '../types';
 
 function createSampleTask(overrides: Partial<Task> = {}): Task {
@@ -283,5 +285,285 @@ describe('Reminder Scheduler Service (src/services/reminderScheduler.ts)', () =>
     // Напоминание успешно сработало, количество вызовов setTimeout строго ограничено (не зациклилось)
     expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  it('10. включение notificationsEnabled: true до наступления reminder показывает уведомление ровно один раз', () => {
+    // 1. Scheduler запущен с notificationsEnabled: false
+    const task = createSampleTask({
+      id: 'task-toggle-on',
+      title: 'Важная встреча',
+      startTime: '10:00',
+      reminderTime: '10:00',
+    });
+
+    scheduler.start(() => [task], { notificationsEnabled: false });
+
+    // 2. Есть активная задача с ближайшим reminder (в 10:00, сейчас 09:30)
+    // 3. До reminder (например, в 09:45, прошло 15 минут) уведомление не показывается
+    vi.advanceTimersByTime(15 * 60 * 1000);
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+
+    // 4. Затем scheduler обновляется с notificationsEnabled: true
+    scheduler.updateOptions({ notificationsEnabled: true });
+    scheduler.refresh([task]);
+
+    // 5. Тот же reminder наступает (ещё 15 минут, до 10:00)
+    vi.advanceTimersByTime(15 * 60 * 1000);
+
+    // 6. Уведомление показывается ровно один раз
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+    expect(mockNotificationConstructor).toHaveBeenCalledWith(
+      'Напоминание: Важная встреча',
+      { body: 'Время начала: 10:00' }
+    );
+
+    // Проверяем, что в дальнейшем уведомление не дублируется
+    vi.advanceTimersByTime(60 * 60 * 1000);
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+  });
+
+  it('11. отключение notificationsEnabled: false до наступления reminder предотвращает показ уведомления', () => {
+    // 1. Scheduler запущен с notificationsEnabled: true
+    const task = createSampleTask({
+      id: 'task-toggle-off',
+      title: 'Тихая задача',
+      startTime: '10:00',
+      reminderTime: '10:00',
+    });
+
+    scheduler.start(() => [task], { notificationsEnabled: true });
+
+    // 2. Есть активная задача с reminder (в 10:00, сейчас 09:30)
+    // До reminder уведомление не показывается
+    vi.advanceTimersByTime(15 * 60 * 1000);
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+
+    // 3. До reminder настройки меняются на false
+    scheduler.updateOptions({ notificationsEnabled: false });
+    scheduler.refresh([task]);
+
+    // 4. Reminder наступает (ещё 15 минут, до 10:00)
+    vi.advanceTimersByTime(15 * 60 * 1000);
+
+    // 5. Уведомление не показывается
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+
+    // Продвигаем время ещё дальше
+    vi.advanceTimersByTime(60 * 60 * 1000);
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+  });
+
+  it('12. refresh() после изменения настроек отменяет предыдущий таймаут и не создаёт два таймаута для одного reminder', () => {
+    const task = createSampleTask({
+      id: 'task-refresh-timer',
+      title: 'Проверка таймеров',
+      reminderTime: '10:00',
+    });
+
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+
+    scheduler.start(() => [task], { notificationsEnabled: false });
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    const initialTimerId = (scheduler as unknown as { timerId: ReturnType<typeof setTimeout> }).timerId;
+    expect(initialTimerId).not.toBeNull();
+
+    // Прошло 10 минут
+    vi.advanceTimersByTime(10 * 60 * 1000);
+
+    // Обновляем настройки и вызываем refresh()
+    scheduler.updateOptions({ notificationsEnabled: true });
+    scheduler.refresh([task]);
+
+    // Предыдущий таймер был явно очищен через clearTimeout
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(initialTimerId);
+
+    // Назначен новый скорректированный таймаут
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
+
+    // При наступлении времени reminder срабатывает ровно одно уведомление (нет дублирования от двух таймеров)
+    vi.advanceTimersByTime(20 * 60 * 1000);
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+
+    // При дальнейшем движении времени уведомление не дублируется
+    vi.advanceTimersByTime(60 * 60 * 1000);
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+  });
+});
+
+function renderHook<T>(hookFn: () => T) {
+  let hookIndex = 0;
+  const refList: any[] = [];
+  const effectCallbacks: { fn: () => void | (() => void); deps?: unknown[] }[] = [];
+  const cleanups: (() => void)[] = [];
+  let isMounted = true;
+  const result = { current: undefined as unknown as T };
+
+  const dispatcher = {
+    useState: <S>(initial: S | (() => S)) => [initial, () => {}],
+    useRef: <V>(initial: V) => {
+      const idx = hookIndex++;
+      if (idx >= refList.length) {
+        refList[idx] = { current: initial };
+      }
+      return refList[idx];
+    },
+    useCallback: <F extends Function>(fn: F) => fn,
+    useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
+      const idx = hookIndex++;
+      if (!isMounted) return;
+      const prevEntry = effectCallbacks[idx];
+      let hasChanged = true;
+      if (prevEntry && prevEntry.deps && deps) {
+        hasChanged = deps.some((d, i) => !Object.is(d, prevEntry.deps![i]));
+      }
+      if (hasChanged) {
+        if (cleanups[idx]) {
+          cleanups[idx]();
+        }
+        const cleanup = effect();
+        if (typeof cleanup === 'function') {
+          cleanups[idx] = cleanup;
+        }
+      }
+      effectCallbacks[idx] = { fn: effect, deps };
+    },
+  };
+
+  const execute = () => {
+    hookIndex = 0;
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const prevDispatcher = internals?.H;
+    internals.H = dispatcher;
+    try {
+      result.current = hookFn();
+    } finally {
+      internals.H = prevDispatcher;
+    }
+  };
+
+  execute();
+
+  return {
+    result,
+    rerender: () => {
+      if (!isMounted) return;
+      execute();
+    },
+    unmount: () => {
+      isMounted = false;
+      for (const cleanup of cleanups) {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      }
+    },
+  };
+}
+
+describe('useReminderScheduler Hook integration (src/hooks/useReminderScheduler.ts)', () => {
+  let originalNotification: typeof Notification | undefined;
+  let mockNotificationConstructor: ReturnType<typeof vi.fn<(title: string, options?: NotificationOptions) => void>>;
+  const BASE_TIME = new Date(2026, 9, 7, 9, 30, 0, 0);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(BASE_TIME);
+    reminderScheduler.stop();
+    reminderScheduler.clearNotifiedHistory();
+
+    originalNotification = (globalThis as unknown as { Notification?: typeof Notification }).Notification;
+    mockNotificationConstructor = vi.fn<(title: string, options?: NotificationOptions) => void>();
+
+    class MockNotification {
+      static permission: NotificationPermission = 'granted';
+      static requestPermission = vi.fn().mockResolvedValue('granted');
+      constructor(title: string, options?: NotificationOptions) {
+        mockNotificationConstructor(title, options);
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Notification', {
+      value: MockNotification,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    reminderScheduler.stop();
+    if (originalNotification !== undefined) {
+      Object.defineProperty(globalThis, 'Notification', {
+        value: originalNotification,
+        writable: true,
+        configurable: true,
+      });
+    } else {
+      delete (globalThis as unknown as { Notification?: unknown }).Notification;
+    }
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('при переключении notificationsEnabled с false на true в хуке уведомление показывается ровно один раз', () => {
+    const task = createSampleTask({
+      id: 'hook-task-toggle',
+      title: 'Задача из хука',
+      startTime: '10:00',
+      reminderTime: '10:00',
+    });
+
+    let currentProps = { tasks: [task], notificationsEnabled: false };
+    const { rerender } = renderHook(() =>
+      useReminderScheduler(currentProps.tasks, { notificationsEnabled: currentProps.notificationsEnabled })
+    );
+
+    // До reminder уведомление не показывается
+    vi.advanceTimersByTime(15 * 60 * 1000);
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+
+    // Меняем настройки на notificationsEnabled: true
+    currentProps = { tasks: [task], notificationsEnabled: true };
+    rerender();
+
+    // Reminder наступает в 10:00
+    vi.advanceTimersByTime(15 * 60 * 1000);
+
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+    expect(mockNotificationConstructor).toHaveBeenCalledWith(
+      'Напоминание: Задача из хука',
+      { body: 'Время начала: 10:00' }
+    );
+
+    // В дальнейшем не дублируется
+    vi.advanceTimersByTime(60 * 60 * 1000);
+    expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+  });
+
+  it('при переключении notificationsEnabled с true на false в хуке уведомление не показывается', () => {
+    const task = createSampleTask({
+      id: 'hook-task-off',
+      title: 'Задача без уведомления',
+      startTime: '10:00',
+      reminderTime: '10:00',
+    });
+
+    let currentProps = { tasks: [task], notificationsEnabled: true };
+    const { rerender } = renderHook(() =>
+      useReminderScheduler(currentProps.tasks, { notificationsEnabled: currentProps.notificationsEnabled })
+    );
+
+    // До reminder уведомление не показывается
+    vi.advanceTimersByTime(15 * 60 * 1000);
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
+
+    // Меняем настройки на notificationsEnabled: false
+    currentProps = { tasks: [task], notificationsEnabled: false };
+    rerender();
+
+    // Reminder наступает в 10:00
+    vi.advanceTimersByTime(15 * 60 * 1000);
+
+    expect(mockNotificationConstructor).not.toHaveBeenCalled();
   });
 });
