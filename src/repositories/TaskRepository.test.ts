@@ -67,6 +67,31 @@ describe('TaskRepository', () => {
       expect(tasks).toEqual([]);
     });
 
+    it('контракт жизненного цикла: пустое хранилище возвращает [], после create задача появляется, после удаления последней задачи снова []', () => {
+      // 1. При первом запуске (storage пустой) возвращается [] без автоматических demo-задач
+      expect(TaskRepository.getAll()).toEqual([]);
+
+      // 2. После create() созданная задача появляется в хранилище
+      const created = TaskRepository.create({
+        title: 'Первая задача пользователя',
+        type: 'floating',
+        date: '2026-10-07',
+        priority: 'medium',
+        status: 'todo',
+        notes: '',
+        pomodoroCount: 0,
+      });
+
+      const tasksAfterCreate = TaskRepository.getAll();
+      expect(tasksAfterCreate).toHaveLength(1);
+      expect(tasksAfterCreate[0].id).toBe(created.id);
+      expect(tasksAfterCreate[0].title).toBe('Первая задача пользователя');
+
+      // 3. После удаления последней задачи хранилище снова возвращает []
+      TaskRepository.delete(created.id);
+      expect(TaskRepository.getAll()).toEqual([]);
+    });
+
     it('возвращает сохранённые задачи', () => {
       const task = createSampleTask();
       TaskRepository.saveAll([task]);
