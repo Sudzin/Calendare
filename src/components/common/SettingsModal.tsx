@@ -10,8 +10,11 @@ import {
   Sliders, 
   Sparkles,
   Palette,
-  Trash2
+  Trash2,
+  Shield,
+  Lock,
 } from 'lucide-react';
+import { VaultSetupModal } from './VaultSetupModal';
 import { AppSettings, Task, ThemePreset } from '../../types';
 import { WEEKDAYS_RU } from '../../utils/dateUtils';
 import { getTodayDate, getCurrentTimestamp } from '../../utils/date';
@@ -40,6 +43,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
+  const [isVaultSetupOpen, setIsVaultSetupOpen] = useState(false);
+  const [vaultStatus, setVaultStatus] = useState<{ is_initialized: boolean; is_unlocked: boolean; cache_in_credential_manager: boolean } | null>(null);
+
+  useEffect(() => {
+    TaskRepository.getVaultStatus().then(status => {
+      if (status) setVaultStatus(status);
+    });
+  }, []);
+
+  const handleToggleCredCache = async (enabled: boolean) => {
+    sound.playTap();
+    await TaskRepository.setCredentialCaching(enabled);
+    setVaultStatus(prev => prev ? { ...prev, cache_in_credential_manager: enabled } : null);
+  };
+
+  const handleLockVault = async () => {
+    sound.playTap();
+    await TaskRepository.lockVault();
+    setVaultStatus(prev => prev ? { ...prev, is_unlocked: false } : null);
+    onClose();
+  };
 
   const handlePurgeTombstones = async () => {
     sound.playTap();
@@ -447,7 +471,81 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             </div>
           </div>
+
+          <div className="h-px bg-[var(--color-border-glass)]" />
+
+          {/* Section 6: Security & Encryption (Vault) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wider">
+                <Shield className="w-3.5 h-3.5" />
+                <span>Шифрование и безопасность (Vault)</span>
+              </div>
+              {vaultStatus?.is_initialized && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" />
+                  Зашифровано
+                </span>
+              )}
+            </div>
+
+            {vaultStatus?.is_initialized ? (
+              <div className="space-y-3 pt-1">
+                <label className="flex items-start gap-3 p-3 rounded-2xl bg-[var(--color-canvas)]/60 border border-[var(--color-border-glass)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={vaultStatus.cache_in_credential_manager}
+                    onChange={e => handleToggleCredCache(e.target.checked)}
+                    className="mt-0.5 rounded border-[var(--color-border-input)] text-[var(--color-accent)] focus:ring-0"
+                  />
+                  <div>
+                    <span className="font-medium text-[var(--color-content-primary)] block text-xs">
+                      Кэшировать производный ключ в Windows Credential Manager
+                    </span>
+                    <span className="text-[10px] text-[var(--color-content-muted)] block mt-0.5">
+                      Автоматическая разблокировка при запуске без повторного ввода пароля на этом ПК.
+                    </span>
+                  </div>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleLockVault}
+                  className="w-full px-4 py-2.5 bg-[var(--color-canvas)]/60 hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] rounded-2xl text-[var(--color-content-primary)] flex items-center justify-center gap-2 transition-colors font-medium text-xs shadow-xs"
+                >
+                  <Lock className="w-3.5 h-3.5 text-[var(--color-content-muted)]" />
+                  <span>Заблокировать хранилище сейчас</span>
+                </button>
+              </div>
+            ) : (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playTap();
+                    setIsVaultSetupOpen(true);
+                  }}
+                  className="w-full px-4 py-2.5 bg-[var(--color-canvas)]/60 hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] rounded-2xl text-[var(--color-content-primary)] flex items-center justify-center gap-2 transition-colors font-medium text-xs shadow-xs"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                  <span>Создать зашифрованное хранилище (Vault)</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {isVaultSetupOpen && (
+          <VaultSetupModal
+            isOpen={isVaultSetupOpen}
+            onSuccess={() => {
+              TaskRepository.getVaultStatus().then(status => {
+                if (status) setVaultStatus(status);
+              });
+            }}
+            onClose={() => setIsVaultSetupOpen(false)}
+          />
+        )}
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[var(--color-border-glass)] bg-[var(--color-surface)]/60 flex items-center justify-between">

@@ -647,4 +647,90 @@ describe('TaskRepository', () => {
       expect(listener).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('8. Этап 4: Шифрование, манифест и проверка целостности', () => {
+    beforeEach(() => {
+      TaskRepository.clearIntegrityWarnings();
+      TaskRepository.clearCorruptedNotices();
+    });
+
+    it('предупреждение «файл пропал»: если файл есть в манифесте, но отсутствует на диске, ничего не затирается и генерируется warning', () => {
+      const warningListener = vi.fn();
+      const unsubscribe = TaskRepository.onIntegrityWarning(warningListener);
+
+      TaskRepository.recordIntegrityWarning({
+        taskId: 'missing-task-1',
+        kind: 'missing_file',
+        message: 'Файл задачи missing-task-1 пропал',
+        filename: 'missing-task-1.enc',
+      });
+
+      expect(warningListener).toHaveBeenCalledTimes(1);
+      const warnings = TaskRepository.getIntegrityWarnings();
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0].kind).toBe('missing_file');
+      expect(warnings[0].message).toContain('пропал');
+
+      unsubscribe();
+    });
+
+    it('предупреждение «откат или подмена версии»: если хеш файла не совпадает с манифестом, генерируется соответствующее предупреждение', () => {
+      const warningListener = vi.fn();
+      const unsubscribe = TaskRepository.onIntegrityWarning(warningListener);
+
+      TaskRepository.recordIntegrityWarning({
+        taskId: 'tampered-task-1',
+        kind: 'version_mismatch',
+        message: 'Откат или подмена версии для задачи tampered-task-1',
+        filename: 'tampered-task-1.enc',
+      });
+
+      expect(warningListener).toHaveBeenCalledTimes(1);
+      const warnings = TaskRepository.getIntegrityWarnings();
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0].kind).toBe('version_mismatch');
+      expect(warnings[0].message).toContain('Откат или подмена версии');
+
+      unsubscribe();
+    });
+
+    it('GCM не проходит: повреждённый файл переносится в corrupt/ и пользователь уведомляется', () => {
+      const corruptedListener = vi.fn();
+      const unsubscribe = TaskRepository.onCorruptedData(corruptedListener);
+
+      TaskRepository.recordCorruptedNotice({
+        filename: 'corrupted-task.enc',
+        reason: 'GCM auth/decryption failed',
+        timestamp: '2026-10-09T10:00:00Z',
+        corruptPath: 'corrupt/corrupted-task.enc.2026-10-09.corrupt',
+      });
+
+      expect(corruptedListener).toHaveBeenCalled();
+      const notices = TaskRepository.getCorruptedNotices();
+      expect(notices).toHaveLength(1);
+      expect(notices[0].filename).toBe('corrupted-task.enc');
+      expect(notices[0].reason).toContain('GCM');
+
+      unsubscribe();
+    });
+
+    it('создание зашифрованного хранилища: возвращает ключ восстановления достаточной длины', async () => {
+      const res = await TaskRepository.createVault('SecurePassword123!', true);
+      expect(res.recoveryKey).toBeDefined();
+      expect(res.recoveryKey.length).toBeGreaterThan(16);
+
+      const isInit = await TaskRepository.isVaultInitialized();
+      expect(isInit).toBe(true);
+    });
+
+    it('уведомление при блокировке хранилища (onVaultLocked)', async () => {
+      const lockedListener = vi.fn();
+      const unsubscribe = TaskRepository.onVaultLocked(lockedListener);
+
+      TaskRepository.notifyVaultLocked();
+      expect(lockedListener).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+    });
+  });
 });

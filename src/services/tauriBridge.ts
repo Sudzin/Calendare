@@ -11,10 +11,19 @@ export interface CorruptedFileInfo {
   backup_path: string;
 }
 
+export interface IntegrityWarning {
+  taskId: string;
+  kind: 'missing_file' | 'version_mismatch';
+  message: string;
+  filename: string;
+}
+
 export interface ReadTasksResult {
   tasks: any[];
   corrupted_files: CorruptedFileInfo[];
+  integrity_warnings?: IntegrityWarning[];
   data_dir: string;
+  is_vault_locked?: boolean;
 }
 
 export interface ImportSummary {
@@ -25,6 +34,16 @@ export interface ImportSummary {
 export interface PurgeSummary {
   purged_count: number;
   kept_count: number;
+}
+
+export interface CreateVaultResponse {
+  recovery_key: string;
+}
+
+export interface VaultStatusResponse {
+  is_initialized: boolean;
+  is_unlocked: boolean;
+  cache_in_credential_manager: boolean;
 }
 
 /**
@@ -94,5 +113,44 @@ export const tauriApi = {
       console.warn('Failed to register tasks-changed listener:', err);
       return null;
     }
+  },
+
+  // ---------------- Vault & Encryption APIs ----------------
+
+  async isVaultInitialized(): Promise<boolean> {
+    const res = await invokeTauri<boolean>('is_vault_initialized');
+    return res ?? false;
+  },
+
+  async isVaultUnlocked(): Promise<boolean> {
+    const res = await invokeTauri<boolean>('is_vault_unlocked');
+    return res ?? true;
+  },
+
+  async getVaultStatus(): Promise<VaultStatusResponse | null> {
+    return invokeTauri<VaultStatusResponse>('get_vault_status');
+  },
+
+  async createVault(password: string, cacheInCredMgr = true): Promise<CreateVaultResponse | null> {
+    return invokeTauri<CreateVaultResponse>('create_vault', {
+      password,
+      cacheInCredMgr,
+    });
+  },
+
+  async unlockVault(password: string): Promise<void> {
+    await invokeTauri<void>('unlock_vault', { password });
+  },
+
+  async unlockVaultWithRecoveryKey(recoveryKey: string): Promise<void> {
+    await invokeTauri<void>('unlock_vault_with_recovery_key', { recoveryKey });
+  },
+
+  async lockVault(): Promise<void> {
+    await invokeTauri<void>('lock_vault');
+  },
+
+  async setCredentialCaching(enabled: boolean): Promise<void> {
+    await invokeTauri<void>('set_credential_caching', { enabled });
   },
 };

@@ -1,7 +1,7 @@
 import { Task } from '../types';
 import { validateBackup, isSafeId } from '../utils/backupValidation';
 import { getCurrentTimestamp } from '../utils/date';
-import { isTauri, tauriApi } from '../services/tauriBridge';
+import { isTauri, tauriApi, IntegrityWarning, VaultStatusResponse } from '../services/tauriBridge';
 import { mergeTaskLists, mergeTaskVersions } from '../utils/taskMerge';
 
 export const TASK_STORAGE_KEY = 'chronos_tasks';
@@ -198,6 +198,12 @@ export class TauriFileBackend implements TaskStorageBackend {
     try {
       const result = await tauriApi.readTasks();
       if (result) {
+        if (result.is_vault_locked) {
+          TaskRepository.notifyVaultLocked();
+          this.memoryCache = [];
+          return [];
+        }
+
         this.memoryCache = mergeTaskLists(result.tasks.filter(TaskRepository.isValidBasicTask));
         this.isLoaded = true;
 
@@ -209,6 +215,12 @@ export class TauriFileBackend implements TaskStorageBackend {
               timestamp: c.timestamp,
               corruptPath: c.backup_path,
             });
+          }
+        }
+
+        if (result.integrity_warnings && result.integrity_warnings.length > 0) {
+          for (const w of result.integrity_warnings) {
+            TaskRepository.recordIntegrityWarning(w);
           }
         }
       }
@@ -291,6 +303,9 @@ export class TaskRepository {
 
   private static corruptedNotices: CorruptedNotice[] = [];
   private static listeners = new Set<(notices: CorruptedNotice[]) => void>();
+  private static integrityWarnings: IntegrityWarning[] = [];
+  private static integrityListeners = new Set<(warnings: IntegrityWarning[]) => void>();
+  private static vaultLockedListeners = new Set<() => void>();
   private static errorListeners = new Set<(message: string) => void>();
   private static externalChangeListeners = new Set<() => void>();
   private static isWatcherInitialized = false;
@@ -371,6 +386,111 @@ export class TaskRepository {
     return () => {
       TaskRepository.listeners.delete(listener);
     };
+  }
+
+  static recordIntegrityWarning(warning: IntegrityWarning): void {
+    TaskRepository.integrityWarnings.push(warning);
+    for (const listener of TaskRepository.integrityListeners) {
+      listener([...TaskRepository.integrityWarnings]);
+    }
+  }
+
+  static getIntegrityWarnings(): IntegrityWarning[] {
+    return [...TaskRepository.integrityWarnings];
+  }
+
+  static clearIntegrityWarnings(): void {
+    TaskRepository.integrityWarnings = [];
+  }
+
+  static onIntegrityWarning(listener: (warnings: IntegrityWarning[]) => void): () => void {
+    TaskRepository.integrityListeners.add(listener);
+    if (TaskRepository.integrityWarnings.length > 0) {
+      listener([...TaskRepository.integrityWarnings]);
+    }
+    return () => {
+      TaskRepository.integrityListeners.delete(listener);
+    };
+  }
+
+  static onVaultLocked(listener: () => void): () => void {
+    TaskRepository.vaultLockedListeners.add(listener);
+    return () => {
+      TaskRepository.vaultLockedListeners.delete(listener);
+    };
+  }
+
+  static notifyVaultLocked(): void {
+    for (const listener of TaskRepository.vaultLockedListeners) {
+      listener();
+    }
+  }
+
+  // --- Методы управления зашифрованным хранилищем (Vault) ---
+
+  static async isVaultInitialized(): Promise<boolean> {
+    if (isTauri()) {
+      return await tauriApi.isVaultInitialized();
+    }
+    return typeof localStorage !== 'undefined' && localStorage.getItem('chronos_vault_config') !== null;
+  }
+
+  static async isVaultUnlocked(): Promise<boolean> {
+    if (isTauri()) {
+      return await tauriApi.isVaultUnlocked();
+    }
+    return true;
+  }
+
+  static async getVaultStatus(): Promise<VaultStatusResponse | null> {
+    if (isTauri()) {
+      return await tauriApi.getVaultStatus();
+    }
+    const isInit = typeof localStorage !== 'undefined' && localStorage.getItem('chronos_vault_config') !== null;
+    return {
+      is_initialized: isInit,
+      is_unlocked: true,
+      cache_in_credential_manager: true,
+    };
+  }
+
+  static async createVault(password: string, cacheInCredMgr = true): Promise<{ recoveryKey: string }> {
+    if (isTauri()) {
+      const res = await tauriApi.createVault(password, cacheInCredMgr);
+      if (!res) throw new Error('Не удалось создать зашифрованное хранилище');
+      return { recoveryKey: res.recovery_key };
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('chronos_vault_config', JSON.stringify({ version: 1, createdAt: new Date().toISOString() }));
+    }
+    return { recoveryKey: 'CHRONOS-VAULT-RECOVERY-KEY-DEMO' };
+  }
+
+  static async unlockVault(password: string): Promise<void> {
+    if (isTauri()) {
+      await tauriApi.unlockVault(password);
+      await TaskRepository.loadAsync();
+    }
+  }
+
+  static async unlockVaultWithRecoveryKey(recoveryKey: string): Promise<void> {
+    if (isTauri()) {
+      await tauriApi.unlockVaultWithRecoveryKey(recoveryKey);
+      await TaskRepository.loadAsync();
+    }
+  }
+
+  static async lockVault(): Promise<void> {
+    if (isTauri()) {
+      await tauriApi.lockVault();
+      TaskRepository.notifyVaultLocked();
+    }
+  }
+
+  static async setCredentialCaching(enabled: boolean): Promise<void> {
+    if (isTauri()) {
+      await tauriApi.setCredentialCaching(enabled);
+    }
   }
 
   /**

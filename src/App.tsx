@@ -21,6 +21,7 @@ import { RolloverAlertModal } from './components/common/RolloverAlertModal';
 import { PomodoroModal } from './components/common/PomodoroModal';
 import { ToastContainer } from './components/common/ToastContainer';
 import { MigrationBannerModal } from './components/common/MigrationBannerModal';
+import { VaultUnlockModal } from './components/common/VaultUnlockModal';
 
 export default function App() {
   const { settings, updateSettings, toggleTheme } = useSettings();
@@ -58,9 +59,51 @@ export default function App() {
   const [isDayWorkspaceOpen, setIsDayWorkspaceOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPomodoroModalOpen, setIsPomodoroModalOpen] = useState(false);
+  const [isVaultUnlockOpen, setIsVaultUnlockOpen] = useState(false);
 
   // Migration state
   const [migrationCount, setMigrationCount] = useState<number | null>(null);
+
+  // Проверка статуса зашифрованного хранилища при запуске
+  useEffect(() => {
+    TaskRepository.isVaultInitialized().then(isInit => {
+      if (isInit) {
+        TaskRepository.isVaultUnlocked().then(isUnlocked => {
+          if (!isUnlocked) {
+            setIsVaultUnlockOpen(true);
+          }
+        });
+      }
+    });
+  }, []);
+
+  // Подписка на блокировку хранилища
+  useEffect(() => {
+    return TaskRepository.onVaultLocked(() => {
+      setIsVaultUnlockOpen(true);
+    });
+  }, []);
+
+  // Подписка на предупреждения целостности манифеста
+  // - файл есть в манифесте, но отсутствует на диске -> предупреждение «файл пропал»
+  // - хеш файла не совпадает с манифестом, а GCM проходит -> предупреждение «откат или подмена версии»
+  useEffect(() => {
+    return TaskRepository.onIntegrityWarning(warnings => {
+      for (const w of warnings) {
+        if (w.kind === 'missing_file') {
+          pushToast(
+            'Внимание: файл пропал',
+            `Файл задачи ${w.taskId} есть в манифесте, но отсутствует на диске. Восстановление недоступно автоматически, ничего не затерто.`
+          );
+        } else if (w.kind === 'version_mismatch') {
+          pushToast(
+            'Внимание: откат или подмена версии',
+            `Контрольная сумма файла задачи ${w.taskId} не совпадает с манифестом. Обнаружен возможный откат или подмена версии.`
+          );
+        }
+      }
+    });
+  }, [pushToast]);
 
   // Проверка уведомлений о повреждённых файлах
   useEffect(() => {
@@ -236,6 +279,20 @@ export default function App() {
           taskCount={migrationCount}
           onMigrate={handlePerformMigration}
           onDismiss={() => setMigrationCount(null)}
+        />
+      )}
+
+      {isVaultUnlockOpen && (
+        <VaultUnlockModal
+          isOpen={isVaultUnlockOpen}
+          onUnlocked={async () => {
+            setIsVaultUnlockOpen(false);
+            const updated = await TaskRepository.loadAsync();
+            if (updated.length > 0) {
+              setAllTasks(updated);
+            }
+          }}
+          onClose={() => setIsVaultUnlockOpen(false)}
         />
       )}
 
