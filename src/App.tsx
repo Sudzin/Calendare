@@ -10,6 +10,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { useRollover } from './hooks/useRollover';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { getTodayDate } from './utils/date';
+import { TaskRepository } from './repositories/TaskRepository';
 
 import { Sidebar, ActiveNavTab } from './components/layout/Sidebar';
 import { CalendarGrid } from './components/calendar/CalendarGrid';
@@ -19,6 +20,7 @@ import { SettingsModal } from './components/common/SettingsModal';
 import { RolloverAlertModal } from './components/common/RolloverAlertModal';
 import { PomodoroModal } from './components/common/PomodoroModal';
 import { ToastContainer } from './components/common/ToastContainer';
+import { MigrationBannerModal } from './components/common/MigrationBannerModal';
 
 export default function App() {
   const { settings, updateSettings, toggleTheme } = useSettings();
@@ -56,6 +58,56 @@ export default function App() {
   const [isDayWorkspaceOpen, setIsDayWorkspaceOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPomodoroModalOpen, setIsPomodoroModalOpen] = useState(false);
+
+  // Migration state
+  const [migrationCount, setMigrationCount] = useState<number | null>(null);
+
+  // Проверка уведомлений о повреждённых файлах
+  useEffect(() => {
+    return TaskRepository.onCorruptedData(notices => {
+      if (notices.length > 0) {
+        pushToast(
+          'Внимание: повреждённые файлы',
+          `Обнаружены повреждённые файлы задач (${notices.length} шт.). Они сохранены в папку corrupt/ для безопасности.`
+        );
+      }
+    });
+  }, [pushToast]);
+
+  // Проверка необходимости предложения однократной миграции из localStorage
+  useEffect(() => {
+    if (TaskRepository.hasPendingMigration()) {
+      try {
+        const raw = localStorage.getItem(TaskRepository.STORAGE_KEY);
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMigrationCount(parsed.length);
+        }
+      } catch {
+        // Игнорируем ошибку чтения при проверке
+      }
+    }
+  }, []);
+
+  const handlePerformMigration = async () => {
+    try {
+      const res = await TaskRepository.migrateFromLocalStorage();
+      setMigrationCount(null);
+      pushToast(
+        'Импорт завершён',
+        `Импортировано: ${res.imported} задач. Пропущено дубликатов: ${res.skipped}.`
+      );
+      const updated = await TaskRepository.loadAsync();
+      if (updated.length > 0) {
+        setAllTasks(updated);
+      }
+    } catch (err: any) {
+      pushToast(
+        'Ошибка импорта',
+        err?.message || 'Не удалось импортировать задачи'
+      );
+    }
+  };
 
   // Handlers
   const handleSelectDay = (dateStr: string) => {
@@ -116,7 +168,7 @@ export default function App() {
         />
       </main>
 
-      {/* 3. Contextual Modals (Max 640px, rounded-2xl glass frame, Esc support) */}
+      {/* 3. Contextual Modals */}
       {isDayPreviewOpen && (
         <DayPreviewModal
           dateStr={activeDateStr}
@@ -169,6 +221,14 @@ export default function App() {
         <RolloverAlertModal
           escalatedTasks={escalatedTasks}
           onClose={() => setIsRolloverAlertOpen(false)}
+        />
+      )}
+
+      {migrationCount !== null && (
+        <MigrationBannerModal
+          taskCount={migrationCount}
+          onMigrate={handlePerformMigration}
+          onDismiss={() => setMigrationCount(null)}
         />
       )}
 
