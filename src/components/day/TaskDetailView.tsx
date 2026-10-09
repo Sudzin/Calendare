@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, Trash2, AlertCircle } from 'lucide-react';
 import { Task, TaskPriority, TaskStatus } from '../../types';
 import { PRIORITY_META, STATUS_META } from '../../utils/priorityUtils';
@@ -16,6 +16,68 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
   onUpdateTask,
   onDeleteTask,
 }) => {
+  const [localTitle, setLocalTitle] = useState(task?.title || '');
+  const [localNotes, setLocalNotes] = useState(task?.notes || '');
+
+  const taskRef = useRef(task);
+  taskRef.current = task;
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<{ title?: string; notes?: string }>({});
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    const currentTask = taskRef.current;
+    const pending = pendingRef.current;
+    if (currentTask && (pending.title !== undefined || pending.notes !== undefined)) {
+      const nextTitle = pending.title !== undefined ? pending.title : currentTask.title;
+      const nextNotes = pending.notes !== undefined ? pending.notes : (currentTask.notes || '');
+      if (nextTitle !== currentTask.title || nextNotes !== (currentTask.notes || '')) {
+        onUpdateTask({
+          ...currentTask,
+          title: nextTitle,
+          notes: nextNotes,
+        });
+      }
+      pendingRef.current = {};
+    }
+  }, [onUpdateTask]);
+
+  // При смене ID задачи синхронизируем локальные поля и сбрасываем предыдущий flush
+  useEffect(() => {
+    flush();
+    setLocalTitle(task?.title || '');
+    setLocalNotes(task?.notes || '');
+  }, [task?.id, flush]);
+
+  // Flush при размонтировании (закрытие модального окна / смене контекста)
+  useEffect(() => {
+    return () => {
+      flush();
+    };
+  }, [flush]);
+
+  const handleTitleChange = (newTitle: string) => {
+    setLocalTitle(newTitle);
+    pendingRef.current.title = newTitle;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      flush();
+    }, 500);
+  };
+
+  const handleNotesChange = (newNotes: string) => {
+    setLocalNotes(newNotes);
+    pendingRef.current.notes = newNotes;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      flush();
+    }, 500);
+  };
+
   if (!task) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center text-xs text-[var(--color-text-muted)] space-y-2">
@@ -44,8 +106,9 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
       <div className="flex items-center justify-between gap-2">
         <input
           type="text"
-          value={task.title}
-          onChange={e => onUpdateTask({ ...task, title: e.target.value })}
+          value={localTitle}
+          onChange={e => handleTitleChange(e.target.value)}
+          onBlur={flush}
           className="font-serif text-base font-medium text-[var(--color-text-primary)] bg-transparent border-b border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-accent)] focus:outline-none w-full py-0.5 transition-colors"
         />
         <button
@@ -69,14 +132,20 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
           <input
             type="time"
             value={task.startTime || '09:00'}
-            onChange={e => onUpdateTask({ ...task, startTime: e.target.value })}
+            onChange={e => {
+              flush();
+              onUpdateTask({ ...task, startTime: e.target.value });
+            }}
             className="bg-[var(--color-app-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text-primary)] font-mono"
           />
           <span>–</span>
           <input
             type="time"
             value={task.endTime || '10:30'}
-            onChange={e => onUpdateTask({ ...task, endTime: e.target.value })}
+            onChange={e => {
+              flush();
+              onUpdateTask({ ...task, endTime: e.target.value });
+            }}
             className="bg-[var(--color-app-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text-primary)] font-mono"
           />
         </div>
@@ -95,6 +164,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                 key={st}
                 type="button"
                 onClick={() => {
+                  flush();
                   if (st === 'done' && task.status !== 'done') {
                     sound.playTaskComplete();
                   } else if (task.status !== st) {
@@ -128,6 +198,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                   key={pr}
                   type="button"
                   onClick={() => {
+                    flush();
                     if (task.priority !== pr) {
                       sound.playTabSwitch();
                     }
@@ -153,8 +224,9 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
           Заметки и подзадачи
         </span>
         <MarkdownWorkspace
-          content={task.notes || ''}
-          onChange={newNotes => onUpdateTask({ ...task, notes: newNotes })}
+          content={localNotes}
+          onChange={handleNotesChange}
+          onBlur={flush}
         />
       </div>
     </div>

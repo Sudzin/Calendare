@@ -1,5 +1,5 @@
 import { Task } from '../types';
-import { validateBackup } from '../utils/backupValidation';
+import { validateBackup, isSafeId } from '../utils/backupValidation';
 import { getCurrentTimestamp } from '../utils/date';
 import { isTauri, tauriApi } from '../services/tauriBridge';
 
@@ -207,6 +207,7 @@ export class TauriFileBackend implements TaskStorageBackend {
       await tauriApi.writeTask(task);
     } catch (err) {
       console.error(`Failed to write task ${task.id} via Tauri:`, err);
+      throw err;
     }
   }
 
@@ -216,6 +217,7 @@ export class TauriFileBackend implements TaskStorageBackend {
       await tauriApi.deleteTask(id, deletedAt);
     } catch (err) {
       console.error(`Failed to delete task ${id} via Tauri:`, err);
+      throw err;
     }
   }
 
@@ -243,6 +245,20 @@ export class TaskRepository {
 
   private static corruptedNotices: CorruptedNotice[] = [];
   private static listeners = new Set<(notices: CorruptedNotice[]) => void>();
+  private static errorListeners = new Set<(message: string) => void>();
+
+  static onStorageError(listener: (message: string) => void): () => void {
+    TaskRepository.errorListeners.add(listener);
+    return () => {
+      TaskRepository.errorListeners.delete(listener);
+    };
+  }
+
+  static notifyStorageError(message: string): void {
+    for (const listener of TaskRepository.errorListeners) {
+      listener(message);
+    }
+  }
 
   static getBackend(): TaskStorageBackend {
     return TaskRepository.currentBackend;
@@ -281,6 +297,7 @@ export class TaskRepository {
    * Проверка: требуется ли предложить пользователю однократную миграцию из localStorage в файл
    */
   static hasPendingMigration(): boolean {
+    if (!isTauri()) return false;
     if (typeof localStorage === 'undefined') return false;
     const isMigrated = localStorage.getItem(TaskRepository.MIGRATION_FLAG_KEY) === 'true';
     if (isMigrated) return false;
@@ -351,8 +368,7 @@ export class TaskRepository {
     }
     const candidate = item as Record<string, unknown>;
     return (
-      typeof candidate.id === 'string' &&
-      candidate.id.trim() !== '' &&
+      isSafeId(candidate.id) &&
       typeof candidate.title === 'string' &&
       typeof candidate.date === 'string' &&
       candidate.date.trim() !== '' &&
@@ -463,10 +479,16 @@ export class TaskRepository {
    * Сохранение одной задачи (атомарная запись на диск в Tauri)
    */
   static async saveTask(task: Task): Promise<void> {
-    if (TaskRepository.currentBackend.saveTask) {
-      await TaskRepository.currentBackend.saveTask(task);
-    } else {
-      TaskRepository.saveAll([task, ...TaskRepository.getAll().filter(t => t.id !== task.id)]);
+    try {
+      if (TaskRepository.currentBackend.saveTask) {
+        await TaskRepository.currentBackend.saveTask(task);
+      } else {
+        TaskRepository.saveAll([task, ...TaskRepository.getAll().filter(t => t.id !== task.id)]);
+      }
+    } catch (err) {
+      console.error(`Failed to save task ${task.id}:`, err);
+      TaskRepository.notifyStorageError('Не удалось сохранить задачу на диск');
+      throw err;
     }
   }
 
@@ -474,10 +496,16 @@ export class TaskRepository {
    * Удаление задачи (с установкой tombstone deletedAt на диске)
    */
   static async deleteTask(id: string): Promise<void> {
-    if (TaskRepository.currentBackend.deleteTask) {
-      await TaskRepository.currentBackend.deleteTask(id, getCurrentTimestamp());
-    } else {
-      TaskRepository.saveAll(TaskRepository.delete(id));
+    try {
+      if (TaskRepository.currentBackend.deleteTask) {
+        await TaskRepository.currentBackend.deleteTask(id, getCurrentTimestamp());
+      } else {
+        TaskRepository.saveAll(TaskRepository.delete(id));
+      }
+    } catch (err) {
+      console.error(`Failed to delete task ${id}:`, err);
+      TaskRepository.notifyStorageError('Не удалось сохранить задачу на диск');
+      throw err;
     }
   }
 

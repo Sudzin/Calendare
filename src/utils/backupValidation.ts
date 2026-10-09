@@ -4,6 +4,27 @@ export const VALID_PRIORITIES: readonly TaskPriority[] = ['low', 'medium', 'high
 export const VALID_STATUSES: readonly TaskStatus[] = ['todo', 'in_progress', 'done', 'postponed'] as const;
 export const VALID_TYPES: readonly TaskType[] = ['timed', 'floating'] as const;
 
+export const WINDOWS_RESERVED_NAMES = new Set([
+  'CON', 'PRN', 'AUX', 'NUL',
+  'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+  'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9',
+]);
+
+const SAFE_ID_REGEX = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * Проверка безопасности идентификатора:
+ * - Длина от 1 до 128 символов
+ * - Только символы [A-Za-z0-9_-]
+ * - Запрещены системные имена Windows (CON, PRN, AUX, NUL и т.д.)
+ */
+export function isSafeId(id: unknown): id is string {
+  if (typeof id !== 'string') return false;
+  if (!SAFE_ID_REGEX.test(id)) return false;
+  if (WINDOWS_RESERVED_NAMES.has(id.toUpperCase())) return false;
+  return true;
+}
+
 export interface ValidatedBackup {
   version?: string;
   exportedAt?: string;
@@ -25,9 +46,9 @@ export function validateTask(raw: unknown, index?: number): Task {
 
   const obj = raw as Record<string, unknown>;
 
-  // id: обязательная непустая строка
-  if (typeof obj.id !== 'string' || obj.id.trim() === '') {
-    throw new Error(`${prefix}отсутствует или некорректно обязательное поле "id" (ожидается непустая строка)`);
+  // id: обязательная безопасная строка (1..128 символов, [A-Za-z0-9_-], не зарезервированное имя)
+  if (!isSafeId(obj.id)) {
+    throw new Error(`${prefix}отсутствует или некорректно обязательное поле "id" (ожидается безопасный id: [A-Za-z0-9_-], 1..128 символов, без служебных имён ОС)`);
   }
 
   // title: обязательная строка

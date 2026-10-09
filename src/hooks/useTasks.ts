@@ -23,13 +23,16 @@ export function useTasks() {
     };
   }, []);
 
-  // Синхронизация списка в активное хранилище (пропускает первичный рендер)
+  // Синхронизация списка в localStorage ТОЛЬКО для localStorage-бэкенда
+  // Для Tauri-бэкенда эффект saveAll НЕ вызывается: пишутся только измененные задачи
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    TaskRepository.saveAll(tasks);
+    if (TaskRepository.getBackend().type === 'localStorage') {
+      TaskRepository.saveAll(tasks);
+    }
   }, [tasks]);
 
   const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task => {
@@ -53,8 +56,30 @@ export function useTasks() {
   }, []);
 
   const setAllTasks = useCallback((newTasks: Task[]) => {
+    if (TaskRepository.getBackend().type === 'file') {
+      const oldMap = new Map(tasks.map(t => [t.id, t]));
+      const newMap = new Map(newTasks.map(t => [t.id, t]));
+
+      // 1. Изменённые и новые пиши
+      for (const newTask of newTasks) {
+        const oldTask = oldMap.get(newTask.id);
+        if (!oldTask || JSON.stringify(oldTask) !== JSON.stringify(newTask)) {
+          TaskRepository.saveTask(newTask).catch(err => console.error('Failed to save task file:', err));
+        }
+      }
+
+      // 2. Отсутствующие в новом наборе ставь tombstone
+      for (const oldTask of tasks) {
+        if (!newMap.has(oldTask.id)) {
+          TaskRepository.deleteTask(oldTask.id).catch(err => console.error('Failed to tombstone task file:', err));
+        }
+      }
+    } else {
+      TaskRepository.saveAll(newTasks);
+    }
+
     setTasks(newTasks);
-  }, []);
+  }, [tasks]);
 
   return {
     tasks,

@@ -228,4 +228,47 @@ describe('Валидация резервной копии (backupValidation)', 
       expect(TaskRepository.getById('old-task')).toBeUndefined();
     });
   });
+
+  describe('4. Безопасность идентификаторов задач (isSafeId)', () => {
+    it('отклоняет опасные и зарезервированные id (../x, a/b, a\\b, CON, пустая строка)', () => {
+      const unsafeIds = ['../x', 'a/b', 'a\\b', 'CON', 'con', '', '   '];
+
+      for (const badId of unsafeIds) {
+        expect(() => {
+          validateTask({
+            ...createValidTask(),
+            id: badId,
+          });
+        }).toThrow('отсутствует или некорректно обязательное поле "id"');
+      }
+    });
+
+    it('принимает корректные безопасные id ([A-Za-z0-9_-], длина 1..128)', () => {
+      const validIds = [
+        'task-1',
+        'task_2',
+        'UUID-1234_5678',
+        '0123456789',
+        'a',
+        'a'.repeat(128),
+      ];
+
+      for (const goodId of validIds) {
+        const task = validateTask({
+          ...createValidTask(),
+          id: goodId,
+        });
+        expect(task.id).toBe(goodId);
+      }
+    });
+
+    it('отклоняет id длиннее 128 символов', () => {
+      expect(() => {
+        validateTask({
+          ...createValidTask(),
+          id: 'a'.repeat(129),
+        });
+      }).toThrow('отсутствует или некорректно обязательное поле "id"');
+    });
+  });
 });

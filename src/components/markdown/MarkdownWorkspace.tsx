@@ -5,9 +5,10 @@ import { sound } from '../../utils/sound';
 interface MarkdownWorkspaceProps {
   content: string;
   onChange: (newContent: string) => void;
+  onBlur?: () => void;
 }
 
-export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, onChange }) => {
+export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, onChange, onBlur }) => {
   const [viewMode, setViewMode] = useState<'editor' | 'preview' | 'split'>('editor');
 
   const insertSyntax = (prefix: string, suffix = '') => {
@@ -279,6 +280,7 @@ export const MarkdownWorkspace: React.FC<MarkdownWorkspaceProps> = ({ content, o
               id="task-markdown-input"
               value={content}
               onChange={e => onChange(e.target.value)}
+              onBlur={onBlur}
               placeholder="Заметки, чек-лист (- [ ] пункт)..."
               className="w-full h-full bg-transparent resize-none border-0 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-0 placeholder:text-[var(--color-text-muted)] leading-relaxed"
             />

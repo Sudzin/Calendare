@@ -40,8 +40,8 @@ src/
 | Module | Location | Responsibility |
 | --- | --- | --- |
 | Task storage | `src/repositories/TaskRepository.ts` | CRUD задач, поддержка бэкендов (`localStorage` / Tauri file storage) |
-| File storage layer | `src/services/taskFileStorage.ts` | Атомарная запись задач (.tmp -> rename), изоляция битых файлов в `corrupt/`, tombstones |
-| Tauri bridge & commands | `src/services/tauriBridge.ts`, `src-tauri/src/storage.rs` | Вызовы Tauri 2 (чтение, атомарная запись, удаление, выбор папки) |
+| Tauri storage engine | `src-tauri/src/storage.rs` | Атомарная запись задач (.tmp -> rename), изоляция битых файлов в `corrupt/`, tombstones, безопасные id |
+| Tauri bridge & commands | `src/services/tauriBridge.ts`, `src-tauri/src/lib.rs` | Вызовы Tauri 2 (чтение, атомарная запись, удаление, выбор папки) |
 | Rollover | `src/utils/rollover.ts` | Чистая бизнес-логика переноса просроченных задач и повышения приоритетов |
 | Date/time | `src/utils/date.ts` | Локальные календарные даты (`YYYY-MM-DD`), смещения дней, ISO timestamp |
 | Calendar grid utils | `src/utils/dateUtils.ts` | Матрицы месяца и недели, русские названия месяцев/дней недели |

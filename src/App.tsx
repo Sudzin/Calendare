@@ -74,6 +74,13 @@ export default function App() {
     });
   }, [pushToast]);
 
+  // Подписка на ошибки записи/удаления задач на диск
+  useEffect(() => {
+    return TaskRepository.onStorageError(errorMessage => {
+      pushToast('Ошибка записи', errorMessage);
+    });
+  }, [pushToast]);
+
   // Проверка необходимости предложения однократной миграции из localStorage
   useEffect(() => {
     if (TaskRepository.hasPendingMigration()) {
