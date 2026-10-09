@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task } from '../../types';
+import { UpdateTaskInput } from '../../repositories/TaskRepository';
 import { DayHeader } from './DayHeader';
 import { TaskList } from './TaskList';
 import { TaskForm } from './TaskForm';
@@ -11,7 +12,7 @@ interface DayWorkspaceModalProps {
   dateStr: string;
   tasks: Task[];
   onClose: () => void;
-  onUpdateTask: (task: Task) => void;
+  onUpdateTask: (task: UpdateTaskInput) => void;
   onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onDeleteTask: (taskId: string) => void;
   onChangeDate: (newDateStr: string) => void;

@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, Trash2, AlertCircle } from 'lucide-react';
 import { Task, TaskPriority, TaskStatus } from '../../types';
+import { UpdateTaskInput } from '../../repositories/TaskRepository';
 import { PRIORITY_META, STATUS_META } from '../../utils/priorityUtils';
 import { MarkdownWorkspace } from '../markdown/MarkdownWorkspace';
 import { sound } from '../../utils/sound';
 
+interface PendingEdit {
+  taskId: string;
+  title?: string;
+  notes?: string;
+}
+
 interface TaskDetailViewProps {
   task: Task | null;
-  onUpdateTask: (task: Task) => void;
+  onUpdateTask: (task: UpdateTaskInput) => void;
   onDeleteTask: (taskId: string) => void;
 }
 
@@ -19,50 +26,56 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
   const [localTitle, setLocalTitle] = useState(task?.title || '');
   const [localNotes, setLocalNotes] = useState(task?.notes || '');
 
-  const taskRef = useRef(task);
-  taskRef.current = task;
-
+  const pendingRef = useRef<PendingEdit | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingRef = useRef<{ title?: string; notes?: string }>({});
 
   const flush = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    const currentTask = taskRef.current;
     const pending = pendingRef.current;
-    if (currentTask && (pending.title !== undefined || pending.notes !== undefined)) {
-      const nextTitle = pending.title !== undefined ? pending.title : currentTask.title;
-      const nextNotes = pending.notes !== undefined ? pending.notes : (currentTask.notes || '');
-      if (nextTitle !== currentTask.title || nextNotes !== (currentTask.notes || '')) {
-        onUpdateTask({
-          ...currentTask,
-          title: nextTitle,
-          notes: nextNotes,
-        });
+    if (pending) {
+      const updatePayload: UpdateTaskInput = { id: pending.taskId };
+      let hasChanges = false;
+      if (pending.title !== undefined) {
+        updatePayload.title = pending.title;
+        hasChanges = true;
       }
-      pendingRef.current = {};
+      if (pending.notes !== undefined) {
+        updatePayload.notes = pending.notes;
+        hasChanges = true;
+      }
+      if (hasChanges) {
+        onUpdateTask(updatePayload);
+      }
+      pendingRef.current = null;
     }
   }, [onUpdateTask]);
 
-  // При смене ID задачи синхронизируем локальные поля и сбрасываем предыдущий flush
+  // 4. Синхронизацию localTitle/localNotes из пропсов делаем только по [task?.id]
+  // 3. Flush при смене задачи делаем в cleanup эффекта с зависимостью [task?.id], чтобы он выполнялся до подмены
   useEffect(() => {
-    flush();
     setLocalTitle(task?.title || '');
     setLocalNotes(task?.notes || '');
-  }, [task?.id, flush]);
 
-  // Flush при размонтировании (закрытие модального окна / смене контекста)
-  useEffect(() => {
     return () => {
       flush();
     };
-  }, [flush]);
+  }, [task?.id, flush]);
 
   const handleTitleChange = (newTitle: string) => {
+    if (!task) return;
+    // 1. Если приходит изменение для другого id, сначала flush() прежней
+    if (pendingRef.current && pendingRef.current.taskId !== task.id) {
+      flush();
+    }
     setLocalTitle(newTitle);
-    pendingRef.current.title = newTitle;
+    pendingRef.current = {
+      taskId: task.id,
+      notes: pendingRef.current?.taskId === task.id ? pendingRef.current.notes : undefined,
+      title: newTitle,
+    };
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       flush();
@@ -70,8 +83,17 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
   };
 
   const handleNotesChange = (newNotes: string) => {
+    if (!task) return;
+    // 1. Если приходит изменение для другого id, сначала flush() прежней
+    if (pendingRef.current && pendingRef.current.taskId !== task.id) {
+      flush();
+    }
     setLocalNotes(newNotes);
-    pendingRef.current.notes = newNotes;
+    pendingRef.current = {
+      taskId: task.id,
+      title: pendingRef.current?.taskId === task.id ? pendingRef.current.title : undefined,
+      notes: newNotes,
+    };
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       flush();
@@ -114,6 +136,8 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
         <button
           type="button"
           onClick={() => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            pendingRef.current = null;
             sound.playDelete();
             onDeleteTask(task.id);
           }}
@@ -134,7 +158,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
             value={task.startTime || '09:00'}
             onChange={e => {
               flush();
-              onUpdateTask({ ...task, startTime: e.target.value });
+              onUpdateTask({ id: task.id, startTime: e.target.value });
             }}
             className="bg-[var(--color-app-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text-primary)] font-mono"
           />
@@ -144,7 +168,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
             value={task.endTime || '10:30'}
             onChange={e => {
               flush();
-              onUpdateTask({ ...task, endTime: e.target.value });
+              onUpdateTask({ id: task.id, endTime: e.target.value });
             }}
             className="bg-[var(--color-app-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text-primary)] font-mono"
           />
@@ -170,7 +194,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                   } else if (task.status !== st) {
                     sound.playTabSwitch();
                   }
-                  onUpdateTask({ ...task, status: st });
+                  onUpdateTask({ id: task.id, status: st });
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-colors ${
                   task.status === st
@@ -202,7 +226,7 @@ export const TaskDetailView: React.FC<TaskDetailViewProps> = ({
                     if (task.priority !== pr) {
                       sound.playTabSwitch();
                     }
-                    onUpdateTask({ ...task, priority: pr });
+                    onUpdateTask({ id: task.id, priority: pr });
                   }}
                   className={`px-1.5 py-1 rounded text-[10px] transition-colors font-medium border ${
                     isCurrent

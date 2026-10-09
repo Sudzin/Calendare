@@ -7,6 +7,8 @@ export function useTasks() {
     return TaskRepository.getAll();
   });
   const isFirstRender = useRef(true);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
   // Первичная синхронизация из асинхронного хранилища (Tauri) при монтировании
   useEffect(() => {
@@ -43,12 +45,12 @@ export function useTasks() {
   }, []);
 
   const updateTask = useCallback((updated: UpdateTaskInput): Task => {
-    const existing = tasks.find(t => t.id === updated.id);
+    const existing = tasksRef.current.find(t => t.id === updated.id);
     const updatedTask = TaskRepository.update(updated, existing);
     setTasks(prev => prev.map(t => (t.id === updatedTask.id ? updatedTask : t)));
     TaskRepository.saveTask(updatedTask).catch(err => console.error('Failed to update task file:', err));
     return updatedTask;
-  }, [tasks]);
+  }, []);
 
   const deleteTask = useCallback((taskId: string) => {
     setTasks(prev => TaskRepository.delete(taskId, prev));
