@@ -318,4 +318,41 @@ describe('useTasks hook', () => {
     expect(stored).toHaveLength(2);
     expect(stored.map((t: Task) => t.id)).toEqual(['t-1', 't-2']);
   });
+
+  it('подхватывает внешние изменения через notifyExternalChange без циклической перезаписи', async () => {
+    const saveTaskSpy = vi.spyOn(TaskRepository, 'saveTask');
+    const { result } = renderHook(() => useTasks());
+
+    expect(result.current.tasks).toHaveLength(0);
+
+    // Внешнее изменение (другой ПК записал задачу)
+    const externalTask: Task = {
+      id: 'external-task-1',
+      title: 'Задача с другого ПК',
+      type: 'floating',
+      date: '2026-10-09',
+      priority: 'high',
+      status: 'todo',
+      notes: '',
+      pomodoroCount: 0,
+      createdAt: '2026-10-09T10:00:00.000Z',
+      updatedAt: '2026-10-09T10:00:00.000Z',
+    };
+    mockStorage.setItem(TASK_STORAGE_KEY, JSON.stringify([externalTask]));
+
+    // Уведомление о внешнем изменении
+    TaskRepository.notifyExternalChange();
+
+    // Ждём асинхронное разрешение промиса loadAsync
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.tasks[0].id).toBe('external-task-1');
+
+    // Проверяем, что не произошло циклического сохранения внешней задачи в репозиторий
+    expect(saveTaskSpy).not.toHaveBeenCalled();
+
+    saveTaskSpy.mockRestore();
+  });
 });

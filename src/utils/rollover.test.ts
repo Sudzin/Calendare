@@ -218,4 +218,45 @@ describe('Pure Rollover Logic (src/utils/rollover.ts)', () => {
     const overdueTodo = createSampleTask({ date: '2026-10-06', status: 'todo' });
     expect(hasOverdueTasks([donePast, overdueTodo, todayTodo], targetToday)).toBe(true);
   });
+
+  it('идемпотентность rollover: повторный запуск для той же даты не эскалирует повторно', () => {
+    const overdueTask = createSampleTask({
+      id: 'task-idem',
+      date: '2026-10-06',
+      priority: 'low',
+      status: 'todo',
+    });
+
+    // 1-й прогон: задача переносится на сегодня с повышением до medium
+    const firstRun = rolloverTasks([overdueTask], targetToday);
+    expect(firstRun.escalatedRecords).toHaveLength(1);
+    const rolledTask = firstRun.updatedTasks[0];
+    expect(rolledTask.date).toBe(targetToday);
+    expect(rolledTask.priority).toBe('medium');
+    expect(rolledTask.lastRolloverDate).toBe(targetToday);
+
+    // 2-й прогон с результатом 1-го прогона для той же даты
+    const secondRun = rolloverTasks(firstRun.updatedTasks, targetToday);
+    expect(secondRun.escalatedRecords).toHaveLength(0);
+    expect(secondRun.updatedTasks[0].priority).toBe('medium'); // Не повысилась повторно
+    expect(secondRun.updatedTasks[0].rolloverCount).toBe(1); // Не увеличился повторно
+  });
+
+  it('надгробия (tombstones с deletedAt) никогда не переносятся и не эскалируются', () => {
+    const deletedPastTask = createSampleTask({
+      id: 'task-deleted-past',
+      date: '2026-10-05',
+      status: 'todo',
+      priority: 'low',
+      deletedAt: '2026-10-06T10:00:00.000Z',
+    });
+
+    expect(hasOverdueTasks([deletedPastTask], targetToday)).toBe(false);
+
+    const result = rolloverTasks([deletedPastTask], targetToday);
+    expect(result.escalatedRecords).toHaveLength(0);
+    expect(result.updatedTasks[0].date).toBe('2026-10-05');
+    expect(result.updatedTasks[0].priority).toBe('low');
+    expect(result.updatedTasks[0].isEscalated).toBeUndefined();
+  });
 });

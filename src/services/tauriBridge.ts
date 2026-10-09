@@ -22,6 +22,11 @@ export interface ImportSummary {
   skipped_count: number;
 }
 
+export interface PurgeSummary {
+  purged_count: number;
+  kept_count: number;
+}
+
 /**
  * Проверка, запущено ли приложение внутри среды Tauri
  */
@@ -71,5 +76,23 @@ export const tauriApi = {
 
   async importTasks(tasks: any[]): Promise<ImportSummary | null> {
     return invokeTauri<ImportSummary>('import_tasks', { tasks });
+  },
+
+  async purgeTombstones(maxAgeDays = 30): Promise<PurgeSummary | null> {
+    return invokeTauri<PurgeSummary>('purge_tombstones', { maxAgeDays });
+  },
+
+  async listenToTaskChanges(callback: () => void): Promise<(() => void) | null> {
+    if (!isTauri()) return null;
+    try {
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlisten = await listen('tasks-changed', () => {
+        callback();
+      });
+      return unlisten;
+    } catch (err) {
+      console.warn('Failed to register tasks-changed listener:', err);
+      return null;
+    }
   },
 };

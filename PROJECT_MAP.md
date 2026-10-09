@@ -39,10 +39,11 @@ src/
 
 | Module | Location | Responsibility |
 | --- | --- | --- |
-| Task storage | `src/repositories/TaskRepository.ts` | CRUD задач, поддержка бэкендов (`localStorage` / Tauri file storage) |
-| Tauri storage engine | `src-tauri/src/storage.rs` | Атомарная запись задач (.tmp -> rename), изоляция битых файлов в `corrupt/`, tombstones, безопасные id |
-| Tauri bridge & commands | `src/services/tauriBridge.ts`, `src-tauri/src/lib.rs` | Вызовы Tauri 2 (чтение, атомарная запись, удаление, выбор папки) |
-| Rollover | `src/utils/rollover.ts` | Чистая бизнес-логика переноса просроченных задач и повышения приоритетов |
+| Task storage | `src/repositories/TaskRepository.ts` | CRUD задач, поддержка бэкендов (`localStorage` / Tauri file storage), слияние, слежение за внешними изменениями, очистка надгробий |
+| Deterministic task merge | `src/utils/taskMerge.ts` | Чистая логика детерминированного слияния версий задач (updatedAt, канонический tie-breaker) и фильтрация надгробий |
+| Tauri storage engine | `src-tauri/src/storage.rs` | Атомарная запись задач (.tmp -> rename), изоляция битых файлов в `corrupt/`, tombstones, очистка >30 дней, детерминированное слияние версий |
+| Tauri bridge & commands | `src/services/tauriBridge.ts`, `src-tauri/src/lib.rs` | Вызовы Tauri 2 (чтение, атомарная запись, удаление, выбор папки, очистка надгробий, события) |
+| Rollover | `src/utils/rollover.ts` | Чистая идемпотентная бизнес-логика переноса просроченных задач и повышения приоритетов (с исключением надгробий) |
 | Date/time | `src/utils/date.ts` | Локальные календарные даты (`YYYY-MM-DD`), смещения дней, ISO timestamp |
 | Calendar grid utils | `src/utils/dateUtils.ts` | Матрицы месяца и недели, русские названия месяцев/дней недели |
 | Notifications service | `src/services/notificationService.ts` | Изоляция Browser Notification API, проверка разрешений, отправка уведомлений |

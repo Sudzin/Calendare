@@ -568,4 +568,83 @@ describe('TaskRepository', () => {
       expect(TaskRepository.getAll()).toEqual([]);
     });
   });
+
+  describe('7. Этап 3: Слияние версий, надгробия и очистка', () => {
+    it('детерминированное слияние: при наличии двух версий одной задачи выигрывает более свежий updatedAt', () => {
+      const oldVersion = createSampleTask({
+        id: 'sync-task',
+        title: 'Старая версия',
+        updatedAt: '2026-10-09T08:00:00.000Z',
+      });
+      const newVersion = createSampleTask({
+        id: 'sync-task',
+        title: 'Свежая версия с другого ПК',
+        updatedAt: '2026-10-09T10:00:00.000Z',
+      });
+
+      // Имитируем сохранение массива с дубликатами версий (например, после синка)
+      mockStorage.setItem(TASK_STORAGE_KEY, JSON.stringify([oldVersion, newVersion]));
+
+      const loaded = TaskRepository.getAll();
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].title).toBe('Свежая версия с другого ПК');
+    });
+
+    it('скрывает задачи с deletedAt из интерфейса при вызове getAll()', () => {
+      const activeTask = createSampleTask({ id: 'active-1', title: 'Активная задача' });
+      const tombstoneTask = createSampleTask({
+        id: 'deleted-1',
+        title: 'Удалённая задача',
+        deletedAt: '2026-10-09T10:00:00.000Z',
+        updatedAt: '2026-10-09T10:00:00.000Z',
+      });
+
+      mockStorage.setItem(TASK_STORAGE_KEY, JSON.stringify([activeTask, tombstoneTask]));
+
+      const loaded = TaskRepository.getAll();
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].id).toBe('active-1');
+    });
+
+    it('очищает надгробия старше 30 дней по команде purgeOldTombstones', async () => {
+      const now = Date.now();
+      const freshDeletedAt = new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(); // 5 дней назад
+      const oldDeletedAt = new Date(now - 35 * 24 * 60 * 60 * 1000).toISOString(); // 35 дней назад
+
+      const freshTombstone = createSampleTask({
+        id: 'tomb-fresh',
+        deletedAt: freshDeletedAt,
+      });
+      const oldTombstone = createSampleTask({
+        id: 'tomb-old',
+        deletedAt: oldDeletedAt,
+      });
+      const activeTask = createSampleTask({ id: 'active-keep' });
+
+      mockStorage.setItem(
+        TASK_STORAGE_KEY,
+        JSON.stringify([activeTask, freshTombstone, oldTombstone])
+      );
+
+      const result = await TaskRepository.purgeOldTombstones(30);
+      expect(result.purgedCount).toBe(1);
+      expect(result.keptCount).toBe(1);
+
+      const stored = JSON.parse(mockStorage.getItem(TASK_STORAGE_KEY)!);
+      expect(stored).toHaveLength(2);
+      expect(stored.map((t: Task) => t.id)).toEqual(['active-keep', 'tomb-fresh']);
+    });
+
+    it('поддерживает подписку на внешние изменения через onExternalChange', () => {
+      const listener = vi.fn();
+      const unsubscribe = TaskRepository.onExternalChange(listener);
+
+      TaskRepository.notifyExternalChange();
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+      TaskRepository.notifyExternalChange();
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
 });

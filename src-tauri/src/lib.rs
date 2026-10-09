@@ -102,6 +102,13 @@ pub fn import_tasks(state: State<'_, AppState>, tasks: Vec<Value>) -> Result<sto
     storage::import_task_list(&dir, tasks)
 }
 
+#[tauri::command]
+pub fn purge_tombstones(state: State<'_, AppState>, max_age_days: Option<u64>) -> Result<storage::PurgeSummary, String> {
+    let dir = state.data_dir.lock().map_err(|e| e.to_string())?;
+    let days = max_age_days.unwrap_or(30);
+    storage::purge_old_tombstones(&dir, days)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -130,6 +137,7 @@ pub fn run() {
             write_task,
             delete_task,
             import_tasks,
+            purge_tombstones,
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

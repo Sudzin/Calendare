@@ -2,6 +2,7 @@ import { Task } from '../types';
 import { validateBackup, isSafeId } from '../utils/backupValidation';
 import { getCurrentTimestamp } from '../utils/date';
 import { isTauri, tauriApi } from '../services/tauriBridge';
+import { mergeTaskLists, mergeTaskVersions } from '../utils/taskMerge';
 
 export const TASK_STORAGE_KEY = 'chronos_tasks';
 export const TASK_MIGRATION_FLAG_KEY = 'chronos_tasks_migrated_to_files';
@@ -26,6 +27,7 @@ export interface TaskStorageBackend {
   saveTask?(task: Task): Promise<void> | void;
   deleteTask?(id: string, deletedAt: string): Promise<void> | void;
   importTasks?(tasks: Task[]): Promise<{ importedCount: number; skippedCount: number }>;
+  purgeTombstones?(days?: number): Promise<{ purgedCount: number; keptCount: number }>;
 }
 
 /**
@@ -71,7 +73,7 @@ export class LocalStorageBackend implements TaskStorageBackend {
               }
             }
 
-            return valid;
+            return mergeTaskLists(valid);
           }
           // Не-массив — сохраняем поврежденные сырые данные с меткой времени
           const timestamp = getCurrentTimestamp().replace(/[:.]/g, '-');
@@ -151,6 +153,37 @@ export class LocalStorageBackend implements TaskStorageBackend {
     this.saveAll(Array.from(map.values()));
     return { importedCount, skippedCount };
   }
+
+  async purgeTombstones(days = 30): Promise<{ purgedCount: number; keptCount: number }> {
+    try {
+      if (typeof localStorage === 'undefined') return { purgedCount: 0, keptCount: 0 };
+      const raw = localStorage.getItem(TASK_STORAGE_KEY);
+      if (!raw) return { purgedCount: 0, keptCount: 0 };
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return { purgedCount: 0, keptCount: 0 };
+
+      const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
+      let purgedCount = 0;
+      let keptCount = 0;
+
+      const filtered = parsed.filter(t => {
+        if (t && t.deletedAt) {
+          const deletedTime = new Date(t.deletedAt).getTime();
+          if (!Number.isNaN(deletedTime) && deletedTime < cutoffMs) {
+            purgedCount++;
+            return false;
+          }
+          keptCount++;
+        }
+        return true;
+      });
+
+      this.saveAll(filtered);
+      return { purgedCount, keptCount };
+    } catch {
+      return { purgedCount: 0, keptCount: 0 };
+    }
+  }
 }
 
 /**
@@ -165,7 +198,7 @@ export class TauriFileBackend implements TaskStorageBackend {
     try {
       const result = await tauriApi.readTasks();
       if (result) {
-        this.memoryCache = result.tasks.filter(TaskRepository.isValidBasicTask);
+        this.memoryCache = mergeTaskLists(result.tasks.filter(TaskRepository.isValidBasicTask));
         this.isLoaded = true;
 
         if (result.corrupted_files && result.corrupted_files.length > 0) {
@@ -233,6 +266,19 @@ export class TauriFileBackend implements TaskStorageBackend {
     }
     return { importedCount: 0, skippedCount: 0 };
   }
+
+  async purgeTombstones(days = 30): Promise<{ purgedCount: number; keptCount: number }> {
+    try {
+      const res = await tauriApi.purgeTombstones(days);
+      await this.loadFromDisk();
+      if (res) {
+        return { purgedCount: res.purged_count, keptCount: res.kept_count };
+      }
+    } catch (err) {
+      console.error('Failed to purge tombstones via Tauri:', err);
+    }
+    return { purgedCount: 0, keptCount: 0 };
+  }
 }
 
 export class TaskRepository {
@@ -246,6 +292,40 @@ export class TaskRepository {
   private static corruptedNotices: CorruptedNotice[] = [];
   private static listeners = new Set<(notices: CorruptedNotice[]) => void>();
   private static errorListeners = new Set<(message: string) => void>();
+  private static externalChangeListeners = new Set<() => void>();
+  private static isWatcherInitialized = false;
+
+  static onExternalChange(listener: () => void): () => void {
+    TaskRepository.initWatcher();
+    TaskRepository.externalChangeListeners.add(listener);
+    return () => {
+      TaskRepository.externalChangeListeners.delete(listener);
+    };
+  }
+
+  static notifyExternalChange(): void {
+    for (const listener of TaskRepository.externalChangeListeners) {
+      listener();
+    }
+  }
+
+  private static initWatcher(): void {
+    if (TaskRepository.isWatcherInitialized) return;
+    TaskRepository.isWatcherInitialized = true;
+
+    if (isTauri()) {
+      tauriApi.listenToTaskChanges(() => {
+        TaskRepository.notifyExternalChange();
+      });
+    } else if (typeof window !== 'undefined') {
+      // Кросс-вкладочное слежение за изменениями в браузере
+      window.addEventListener('storage', e => {
+        if (e.key === TASK_STORAGE_KEY) {
+          TaskRepository.notifyExternalChange();
+        }
+      });
+    }
+  }
 
   static onStorageError(listener: (message: string) => void): () => void {
     TaskRepository.errorListeners.add(listener);
@@ -515,6 +595,16 @@ export class TaskRepository {
   static importFromBackup(data: unknown): Task[] {
     const validated = validateBackup(data);
     return validated.tasks;
+  }
+
+  /**
+   * Очистка устаревших надгробий (старше days дней, по умолчанию 30 дней)
+   */
+  static async purgeOldTombstones(days = 30): Promise<{ purgedCount: number; keptCount: number }> {
+    if (TaskRepository.currentBackend.purgeTombstones) {
+      return await TaskRepository.currentBackend.purgeTombstones(days);
+    }
+    return { purgedCount: 0, keptCount: 0 };
   }
 }
 

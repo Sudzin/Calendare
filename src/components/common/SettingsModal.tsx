@@ -9,13 +9,15 @@ import {
   Check, 
   Sliders, 
   Sparkles,
-  Palette
+  Palette,
+  Trash2
 } from 'lucide-react';
 import { AppSettings, Task, ThemePreset } from '../../types';
 import { WEEKDAYS_RU } from '../../utils/dateUtils';
 import { getTodayDate, getCurrentTimestamp } from '../../utils/date';
 import { sound } from '../../utils/sound';
 import { validateBackup } from '../../utils/backupValidation';
+import { TaskRepository } from '../../repositories/TaskRepository';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -37,6 +39,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     blurStrength: settings.blurStrength ?? 16,
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
+
+  const handlePurgeTombstones = async () => {
+    sound.playTap();
+    try {
+      const res = await TaskRepository.purgeOldTombstones(30);
+      sound.playComplete();
+      setPurgeStatus(`Очищено: ${res.purgedCount} (оставлено: ${res.keptCount})`);
+      setTimeout(() => setPurgeStatus(null), 3500);
+    } catch {
+      setPurgeStatus('Ошибка очистки');
+      setTimeout(() => setPurgeStatus(null), 3500);
+    }
+  };
 
   useEffect(() => {
     sound.playModalOpen();
@@ -389,9 +405,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <div className="h-px bg-[var(--color-border-glass)]" />
 
-          {/* Section 5: Backup / Restore */}
-          <div className="space-y-2">
-            <span className="font-medium text-[var(--color-content-primary)]">Резервная копия</span>
+          {/* Section 5: Backup / Restore & Storage Maintenance */}
+          <div className="space-y-3">
+            <span className="font-medium text-[var(--color-content-primary)]">Резервная копия и хранилище</span>
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -407,6 +423,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Импорт JSON</span>
                 <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
               </label>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handlePurgeTombstones}
+                className="w-full px-4 py-2 bg-[var(--color-canvas)]/40 hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] rounded-2xl text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] flex items-center justify-between transition-colors text-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-3.5 h-3.5 text-[var(--color-content-muted)]" />
+                  <span>Очистка надгробий старше 30 дней</span>
+                </div>
+                {purgeStatus ? (
+                  <span className="font-mono text-[11px] text-[var(--color-accent)] font-medium">
+                    {purgeStatus}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-[var(--color-content-muted)]">
+                    Физическое удаление
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>

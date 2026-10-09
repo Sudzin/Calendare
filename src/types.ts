@@ -16,9 +16,16 @@ export interface Task {
   isEscalated?: boolean;
   escalationReason?: string;
   rolloverCount?: number;
+  lastRolloverDate?: string; // YYYY-MM-DD когда был выполнен последний перенос
+  deletedAt?: string; // ISO 8601 timestamp для tombstone
   pomodoroCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SyncState {
+  lastRolloverDate?: string;
+  updatedAt?: string;
 }
 
 export type ThemePreset = 'midnight-gold' | 'emerald-frosted' | 'solar-glass';

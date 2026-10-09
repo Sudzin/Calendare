@@ -21,6 +21,12 @@ pub struct ReadTasksResult {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct PurgeSummary {
+    pub purged_count: usize,
+    pub kept_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ImportSummary {
     pub imported_count: usize,
     pub skipped_count: usize,
@@ -133,7 +139,29 @@ pub fn is_valid_task(val: &Value) -> bool {
     }
 }
 
-/// Чтение всех задач из папки данных
+/// Детерминированный выбор между двумя версиями одной задачи.
+/// 1. Выигрывает более свежий updatedAt.
+/// 2. При равенстве updatedAt — лексикографическое сравнение сериализованной строки JSON.
+pub fn choose_winning_task(a: Value, b: Value) -> Value {
+    let time_a = a.get("updatedAt").and_then(|v| v.as_str()).unwrap_or("");
+    let time_b = b.get("updatedAt").and_then(|v| v.as_str()).unwrap_or("");
+
+    if time_a > time_b {
+        a
+    } else if time_b > time_a {
+        b
+    } else {
+        let str_a = serde_json::to_string(&a).unwrap_or_default();
+        let str_b = serde_json::to_string(&b).unwrap_or_default();
+        if str_a >= str_b {
+            a
+        } else {
+            b
+        }
+    }
+}
+
+/// Чтение всех задач из папки данных с детерминированным слиянием версий и сокрытием tombstones
 pub fn read_all_tasks(data_dir: &Path) -> Result<ReadTasksResult, String> {
     ensure_directories(data_dir)?;
 
@@ -143,7 +171,8 @@ pub fn read_all_tasks(data_dir: &Path) -> Result<ReadTasksResult, String> {
     let entries = fs::read_dir(&tasks_dir)
         .map_err(|e| format!("Failed to read tasks directory: {e}"))?;
 
-    let mut tasks = Vec::new();
+    // BTreeMap гарантирует детерминированный порядок вывода по ID задачи независимо от порядка чтения ФС
+    let mut merged_map: std::collections::BTreeMap<String, Value> = std::collections::BTreeMap::new();
     let mut corrupted_files = Vec::new();
 
     for entry in entries {
@@ -196,36 +225,32 @@ pub fn read_all_tasks(data_dir: &Path) -> Result<ReadTasksResult, String> {
         let parsed_val: Result<Value, _> = serde_json::from_str(&content);
         match parsed_val {
             Ok(val) => {
-                // 1. Сначала проверяем признак удаления (deletedAt):
-                // Файлы с tombstone НЕ считаются повреждёнными и просто не попадают в список активных задач.
-                let is_deleted = val
-                    .as_object()
-                    .and_then(|o| o.get("deletedAt"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| !s.trim().is_empty())
-                    .unwrap_or(false);
-
-                if is_deleted {
-                    continue;
+                let maybe_id = val.get("id").and_then(|v| v.as_str());
+                if let Some(id) = maybe_id {
+                    if is_safe_id(id) {
+                        let id_str = id.to_string();
+                        if let Some(existing) = merged_map.remove(&id_str) {
+                            let winner = choose_winning_task(existing, val);
+                            merged_map.insert(id_str, winner);
+                        } else {
+                            merged_map.insert(id_str, val);
+                        }
+                        continue;
+                    }
                 }
 
-                // 2. Затем проверяем валидность активной задачи
-                if is_valid_task(&val) {
-                    tasks.push(val);
-                } else {
-                    // Невалидная структура активной задачи — переносим в corrupt/
-                    let timestamp = current_timestamp_str();
-                    let corrupt_filename = format!("{}.{}.corrupt", file_name, timestamp);
-                    let corrupt_path = corrupt_dir.join(&corrupt_filename);
-                    let _ = fs::rename(&path, &corrupt_path);
+                // Если ID отсутствует, небезопасен или структура невалидна
+                let timestamp = current_timestamp_str();
+                let corrupt_filename = format!("{}.{}.corrupt", file_name, timestamp);
+                let corrupt_path = corrupt_dir.join(&corrupt_filename);
+                let _ = fs::rename(&path, &corrupt_path);
 
-                    corrupted_files.push(CorruptedFileInfo {
-                        filename: file_name,
-                        reason: "Missing required Task fields (id, title, date, status, priority)".to_string(),
-                        timestamp,
-                        backup_path: corrupt_path.to_string_lossy().to_string(),
-                    });
-                }
+                corrupted_files.push(CorruptedFileInfo {
+                    filename: file_name,
+                    reason: "Missing or unsafe Task id".to_string(),
+                    timestamp,
+                    backup_path: corrupt_path.to_string_lossy().to_string(),
+                });
             }
             Err(parse_err) => {
                 // Синтаксическая ошибка JSON — переносим в corrupt/
@@ -244,10 +269,99 @@ pub fn read_all_tasks(data_dir: &Path) -> Result<ReadTasksResult, String> {
         }
     }
 
+    let mut tasks = Vec::new();
+
+    // Обработка детерминированно объединённых задач: сокрытие tombstones и валидация
+    for (_id, val) in merged_map {
+        // 1. Проверяем tombstone (deletedAt):
+        let is_deleted = val
+            .as_object()
+            .and_then(|o| o.get("deletedAt"))
+            .and_then(|v| v.as_str())
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+
+        if is_deleted {
+            // Задача помечена как удалённая: скрывается из интерфейса
+            continue;
+        }
+
+        // 2. Валидация активной задачи
+        if is_valid_task(&val) {
+            tasks.push(val);
+        }
+    }
+
     Ok(ReadTasksResult {
         tasks,
         corrupted_files,
         data_dir: data_dir.to_string_lossy().to_string(),
+    })
+}
+
+/// Физическая очистка файлов-надгробий (tombstones с deletedAt), возраст которых превышает older_than_days (30 дней по умолчанию)
+pub fn purge_old_tombstones(data_dir: &Path, older_than_days: u64) -> Result<PurgeSummary, String> {
+    ensure_directories(data_dir)?;
+    let tasks_dir = data_dir.join("tasks");
+    let entries = fs::read_dir(&tasks_dir)
+        .map_err(|e| format!("Failed to read tasks directory: {e}"))?;
+
+    let now = SystemTime::now();
+    let max_age_duration = std::time::Duration::from_secs(older_than_days * 86400);
+
+    let mut purged_count = 0;
+    let mut kept_count = 0;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+
+        if let Ok(content) = fs::read_to_string(&path) {
+            if let Ok(val) = serde_json::from_str::<Value>(&content) {
+                let is_deleted = val
+                    .as_object()
+                    .and_then(|o| o.get("deletedAt"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.trim().is_empty())
+                    .unwrap_or(false);
+
+                if is_deleted {
+                    let is_old = if let Ok(metadata) = entry.metadata() {
+                        if let Ok(modified) = metadata.modified() {
+                            now.duration_since(modified).unwrap_or_default() >= max_age_duration
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
+                    if is_old {
+                        if fs::remove_file(&path).is_ok() {
+                            purged_count += 1;
+                        } else {
+                            kept_count += 1;
+                        }
+                    } else {
+                        kept_count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(PurgeSummary {
+        purged_count,
+        kept_count,
     })
 }
 
@@ -517,6 +631,83 @@ mod tests {
             assert!(write_single_task(&dir, bad_task).is_err());
             assert!(delete_single_task(&dir, bad_id, "2026-10-09T10:00:00Z").is_err());
         }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_merge_conflicting_task_files_deterministic_winner() {
+        let dir = create_temp_data_dir();
+
+        // Имитируем два файла для одного id (например, файл задачи и файл конфликта синхронизации)
+        let older = json!({
+            "id": "task-conflict-1",
+            "title": "Старое название",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "low",
+            "updatedAt": "2026-10-09T08:00:00Z"
+        });
+
+        let newer = json!({
+            "id": "task-conflict-1",
+            "title": "Новое название с другого ПК",
+            "date": "2026-10-09",
+            "status": "done",
+            "priority": "high",
+            "updatedAt": "2026-10-09T10:00:00Z"
+        });
+
+        let f1 = dir.join("tasks").join("task-conflict-1.json");
+        let f2 = dir.join("tasks").join("task-conflict-1.sync-conflict-deviceB.json");
+
+        atomic_write_file(&f1, &serde_json::to_string(&older).unwrap()).unwrap();
+        atomic_write_file(&f2, &serde_json::to_string(&newer).unwrap()).unwrap();
+
+        let res = read_all_tasks(&dir).unwrap();
+        assert_eq!(res.tasks.len(), 1);
+        assert_eq!(res.tasks[0]["title"], "Новое название с другого ПК");
+        assert_eq!(res.tasks[0]["status"], "done");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_purge_old_tombstones() {
+        let dir = create_temp_data_dir();
+
+        let active = json!({
+            "id": "active-task",
+            "title": "Активная",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "medium"
+        });
+        write_single_task(&dir, active).unwrap();
+
+        // 1 свежий tombstone
+        let fresh_tomb = json!({
+            "id": "fresh-deleted",
+            "title": "Недавно удалённая",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "low",
+            "deletedAt": "2026-10-09T10:00:00Z"
+        });
+        write_single_task(&dir, fresh_tomb).unwrap();
+
+        // Очистка надгробий старше 30 дней: так как файл только что создан, он не удаляется
+        let summary = purge_old_tombstones(&dir, 30).unwrap();
+        assert_eq!(summary.purged_count, 0);
+        assert_eq!(summary.kept_count, 1);
+
+        // При older_than_days = 0 свежий tombstone будет очищен
+        let summary_immediate = purge_old_tombstones(&dir, 0).unwrap();
+        assert_eq!(summary_immediate.purged_count, 1);
+
+        // Активная задача осталась на месте
+        assert!(dir.join("tasks").join("active-task.json").exists());
+        assert!(!dir.join("tasks").join("fresh-deleted.json").exists());
 
         let _ = fs::remove_dir_all(&dir);
     }

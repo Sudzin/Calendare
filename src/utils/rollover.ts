@@ -19,23 +19,28 @@ export interface RolloverResult {
 }
 
 /**
- * Проверяет, есть ли среди задач незавершённые задачи старше целевой даты.
+ * Проверяет, есть ли среди задач незавершённые задачи старше целевой даты (исключая done и postponed).
  */
 export function hasOverdueTasks(tasks: Task[], targetDate: string): boolean {
-  return tasks.some(t => isBeforeDate(t.date, targetDate) && t.status !== 'done');
+  return tasks.some(
+    t => !t.deletedAt && isBeforeDate(t.date, targetDate) && t.status !== 'done' && t.status !== 'postponed'
+  );
 }
 
 /**
  * Чистая бизнес-функция переноса задач (rollover).
  *
  * Правила:
+ * - Удалённые задачи (deletedAt) не переносятся.
  * - Незавершённые задачи прошлых дат (date < targetDate) переносятся на targetDate.
- * - Завершённые задачи (status === 'done') не переносятся.
+ * - Завершённые задачи (status === 'done') и отложенные задачи (status === 'postponed') не переносятся и не эскалируются.
  * - Задачи на targetDate и будущие даты не изменяются.
+ * - Задача, уже перенесённая на targetDate (lastRolloverDate === targetDate), повторно не эскалируется.
  * - Приоритет задачи повышается на 1 уровень (low -> medium -> high -> critical).
  * - Приоритет critical остаётся critical.
  * - Поле isEscalated устанавливается в true.
  * - rolloverCount увеличивается на 1.
+ * - lastRolloverDate устанавливается в targetDate.
  * - escalationReason заполняется описанием переноса.
  * - updatedAt обновляется до текущего момента.
  * - Исходный массив задач не мутируется.
@@ -48,7 +53,13 @@ export function rolloverTasks(tasks: Task[], targetDate: string): RolloverResult
   const escalatedRecords: EscalationRecord[] = [];
 
   const updatedTasks = tasks.map(t => {
-    if (isBeforeDate(t.date, targetDate) && t.status !== 'done') {
+    if (
+      !t.deletedAt &&
+      isBeforeDate(t.date, targetDate) &&
+      t.status !== 'done' &&
+      t.status !== 'postponed' &&
+      t.lastRolloverDate !== targetDate
+    ) {
       const oldPriority = t.priority;
       const newPriority = getNextPriority(t.priority);
 
@@ -59,6 +70,7 @@ export function rolloverTasks(tasks: Task[], targetDate: string): RolloverResult
         isEscalated: true,
         escalationReason: `Авто-перенос с ${t.date} (+1 уровень приоритета)`,
         rolloverCount: (t.rolloverCount || 0) + 1,
+        lastRolloverDate: targetDate,
         updatedAt: getCurrentTimestamp(),
       };
 

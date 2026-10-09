@@ -25,6 +25,28 @@ export function useTasks() {
     };
   }, []);
 
+  // Слежение за внешними изменениями (изменения файлов другим ПК или другой вкладкой)
+  useEffect(() => {
+    const unregister = TaskRepository.onExternalChange(() => {
+      TaskRepository.loadAsync().then(loaded => {
+        const currentTasks = tasksRef.current;
+        const currentSerialized = JSON.stringify(currentTasks);
+        const loadedSerialized = JSON.stringify(loaded);
+
+        // Обновляем состояние ТОЛЬКО если есть реальные изменения, исключая циклический цикл
+        if (currentSerialized !== loadedSerialized) {
+          setTasks(loaded);
+        }
+      }).catch(err => {
+        console.error('Failed to reload tasks after external change:', err);
+      });
+    });
+
+    return () => {
+      unregister();
+    };
+  }, []);
+
   // Синхронизация списка в localStorage ТОЛЬКО для localStorage-бэкенда
   // Для Tauri-бэкенда эффект saveAll НЕ вызывается: пишутся только измененные задачи
   useEffect(() => {
