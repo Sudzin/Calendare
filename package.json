@@ -10,10 +10,12 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/api": "^2.12.1",
     "@types/d3": "^7.4.3",
     "@vitejs/plugin-react": "^6.1.1",
     "d3": "^7.9.0",
@@ -24,6 +26,7 @@
     "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",

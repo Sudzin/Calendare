@@ -7,16 +7,18 @@ Calendare (Chronos-Task) — персональный офлайн-планир�
 ## 2. Stack
 
 * **Framework**: React 19 (SPA)
-* **Language**: TypeScript
+* **Desktop shell**: Tauri 2 (Rust core, NSIS installer)
+* **Language**: TypeScript + Rust
 * **Build tool**: Vite 8 (+ `@tailwindcss/vite`)
 * **Styling**: Tailwind CSS v4, Lucide React (иконки), Motion
 * **Testing**: Vitest
 * **Storage**: Browser `localStorage` (ключи `chronos_tasks`, `chronos_settings`)
-* **Libraries**: `d3` (круговой прогресс-виджет в сайдбаре)
+* **Libraries**: `d3` (круговой прогресс-виджет в сайдбаре), `@tauri-apps/api`
 
 ## 3. Directory map
 
 ```
+src-tauri/             # Оболочка Tauri 2 (Rust-бэкенд, конфигурация окна, иконки, NSIS)
 src/
 ├── components/
 │   ├── calendar/      # Сетка календаря (месяц/неделя), ячейки дней с индикацией нагрузки
