@@ -6,9 +6,11 @@
 import { Task } from '../types';
 import { getReminderDateTime } from '../utils/reminder';
 import { showNotification } from './notificationService';
+import { isReminderAllowedOnCurrentDevice } from './deviceCoordination';
 
 export interface ReminderSchedulerOptions {
   notificationsEnabled?: boolean;
+  remindersThisDeviceOnly?: boolean;
   onReminder?: (task: Task) => void;
 }
 
@@ -174,19 +176,26 @@ export class ReminderScheduler {
       if (timeMs <= now && !this.notifiedReminders.has(key)) {
         this.notifiedReminders.add(key);
 
-        const title = `Напоминание: ${task.title}`;
-        const body = task.startTime
-          ? `Время начала: ${task.startTime}`
-          : `Время напоминания: ${task.reminderTime}`;
+        const isDeviceAllowed = isReminderAllowedOnCurrentDevice({
+          notificationsEnabled: this.options.notificationsEnabled,
+          remindersThisDeviceOnly: this.options.remindersThisDeviceOnly,
+        });
 
-        const isEnabled = this.options.notificationsEnabled ?? true;
-        showNotification(title, { body }, isEnabled);
+        if (isDeviceAllowed) {
+          const title = `Напоминание: ${task.title}`;
+          const body = task.startTime
+            ? `Время начала: ${task.startTime}`
+            : `Время напоминания: ${task.reminderTime}`;
 
-        if (this.options.onReminder) {
-          try {
-            this.options.onReminder(task);
-          } catch {
-            // Изоляция ошибок пользовательского коллбэка
+          const isEnabled = this.options.notificationsEnabled ?? true;
+          showNotification(title, { body }, isEnabled);
+
+          if (this.options.onReminder) {
+            try {
+              this.options.onReminder(task);
+            } catch {
+              // Изоляция ошибок пользовательского коллбэка
+            }
           }
         }
       }

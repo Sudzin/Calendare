@@ -9,6 +9,7 @@ import { reminderScheduler } from '../services/reminderScheduler';
 
 export interface UseReminderSchedulerOptions {
   notificationsEnabled?: boolean;
+  remindersThisDeviceOnly?: boolean;
   onReminder?: (task: Task) => void;
 }
 
@@ -32,6 +33,7 @@ export function useReminderScheduler(
       () => tasksRef.current,
       {
         notificationsEnabled: optionsRef.current.notificationsEnabled,
+        remindersThisDeviceOnly: optionsRef.current.remindersThisDeviceOnly,
         onReminder: optionsRef.current.onReminder,
       }
     );
@@ -44,8 +46,9 @@ export function useReminderScheduler(
   useEffect(() => {
     reminderScheduler.updateOptions({
       notificationsEnabled: options.notificationsEnabled,
+      remindersThisDeviceOnly: options.remindersThisDeviceOnly,
       onReminder: options.onReminder,
     });
     reminderScheduler.refresh(tasks);
-  }, [tasks, options.notificationsEnabled, options.onReminder]);
+  }, [tasks, options.notificationsEnabled, options.remindersThisDeviceOnly, options.onReminder]);
 }

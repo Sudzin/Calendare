@@ -729,6 +729,27 @@ export class TaskRepository {
     }
     return { purgedCount: 0, keptCount: 0 };
   }
+
+  /**
+   * Получить текущую рабочую директорию хранения задач
+   */
+  static async getDataDir(): Promise<string | null> {
+    return await tauriApi.getDataDir();
+  }
+
+  /**
+   * Установить новую рабочую директорию хранения задач
+   */
+  static async setDataDir(path: string): Promise<string | null> {
+    return await tauriApi.setDataDir(path);
+  }
+
+  /**
+   * Открыть нативный диалог выбора папки
+   */
+  static async pickFolder(): Promise<string | null> {
+    return await tauriApi.pickFolder();
+  }
 }
 
 export default TaskRepository;

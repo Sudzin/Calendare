@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isTauri, tauriApi } from './tauriBridge';
+
 export interface NotificationServiceOptions extends NotificationOptions {
   enabled?: boolean;
 }
@@ -18,16 +20,22 @@ function getNotificationConstructor(): typeof Notification | null {
 }
 
 /**
- * Проверяет доступность Browser Notification API в текущем окружении.
+ * Проверяет доступность Notification API (или Tauri native notification) в текущем окружении.
  */
 export function isNotificationSupported(): boolean {
+  if (isTauri()) {
+    return true;
+  }
   return getNotificationConstructor() !== null;
 }
 
 /**
- * Возвращает текущий статус разрешения браузерных уведомлений.
+ * Возвращает текущий статус разрешения уведомлений.
  */
 export function getNotificationPermission(): NotificationPermission {
+  if (isTauri()) {
+    return 'granted';
+  }
   const NotificationClass = getNotificationConstructor();
   if (!NotificationClass) {
     return 'denied';
@@ -36,10 +44,12 @@ export function getNotificationPermission(): NotificationPermission {
 }
 
 /**
- * Запрашивает у пользователя разрешение на показ браузерных уведомлений.
- * Безопасно обрабатывает отсутствие API или ошибки браузера.
+ * Запрашивает у пользователя разрешение на показ уведомлений.
  */
 export async function requestPermission(): Promise<NotificationPermission> {
+  if (isTauri()) {
+    return 'granted';
+  }
   const NotificationClass = getNotificationConstructor();
   if (!NotificationClass) {
     return 'denied';
@@ -52,12 +62,13 @@ export async function requestPermission(): Promise<NotificationPermission> {
 }
 
 /**
- * Отправляет браузерное уведомление через Notification API.
+ * Отправляет нативное уведомление в среде Tauri или браузерное через Notification API.
+ * В Tauri уведомления показываются нативно даже при свёрнутом или скрытом в трей окне.
  *
  * @param title - заголовок уведомления
  * @param options - параметры уведомления (body, icon и т.д.)
  * @param enabled - флаг пользовательской настройки (если false, отправка полностью блокируется)
- * @returns boolean - true, если уведомление успешно создано; false, если заблокировано или произошла ошибка
+ * @returns boolean - true, если уведомление отправлено; false, если заблокировано
  */
 export function showNotification(
   title: string,
@@ -69,6 +80,15 @@ export function showNotification(
     return false;
   }
 
+  // Нативные уведомления Tauri
+  if (isTauri()) {
+    tauriApi.showNotification(title, options?.body).catch(err => {
+      console.warn('Tauri native notification failed:', err);
+    });
+    return true;
+  }
+
+  // Fallback к Browser Notification API
   const NotificationClass = getNotificationConstructor();
   if (!NotificationClass) {
     return false;

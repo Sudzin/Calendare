@@ -13,6 +13,10 @@ import {
   Trash2,
   Shield,
   Lock,
+  FolderOpen,
+  Bell,
+  Laptop,
+  Power,
 } from 'lucide-react';
 import { VaultSetupModal } from './VaultSetupModal';
 import { AppSettings, Task, ThemePreset } from '../../types';
@@ -21,6 +25,7 @@ import { getTodayDate, getCurrentTimestamp } from '../../utils/date';
 import { sound } from '../../utils/sound';
 import { validateBackup } from '../../utils/backupValidation';
 import { TaskRepository } from '../../repositories/TaskRepository';
+import { tauriApi, isTauri } from '../../services/tauriBridge';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -41,6 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     ...settings,
     blurStrength: settings.blurStrength ?? 16,
   });
+  const [dataDirPath, setDataDirPath] = useState<string>(settings.dataDir || '');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
   const [isConfirmingPurge, setIsConfirmingPurge] = useState(false);
@@ -51,7 +57,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     TaskRepository.getVaultStatus().then(status => {
       if (status) setVaultStatus(status);
     });
+
+    if (isTauri()) {
+      TaskRepository.getDataDir().then(dir => {
+        if (dir) {
+          setDataDirPath(dir);
+          setLocalSettings(prev => ({ ...prev, dataDir: dir }));
+        }
+      });
+
+      tauriApi.getAutostart().then(enabled => {
+        setLocalSettings(prev => ({ ...prev, startWithWindows: enabled }));
+      }).catch(() => {});
+    }
   }, []);
+
+  const handlePickFolder = async () => {
+    sound.playTap();
+    try {
+      const picked = await TaskRepository.pickFolder();
+      if (picked) {
+        setDataDirPath(picked);
+        setLocalSettings(prev => ({ ...prev, dataDir: picked }));
+      }
+    } catch (e) {
+      console.warn('Failed to pick folder:', e);
+    }
+  };
+
+  const handleToggleAutostart = async (enabled: boolean) => {
+    sound.playTap();
+    setLocalSettings(prev => ({ ...prev, startWithWindows: enabled }));
+    if (isTauri()) {
+      try {
+        await tauriApi.setAutostart(enabled);
+      } catch (err) {
+        console.warn('Failed to update autostart:', err);
+      }
+    }
+  };
 
   const handleToggleCredCache = async (enabled: boolean) => {
     sound.playTap();
@@ -105,9 +149,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setLocalSettings(prev => ({ ...prev, theme }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     sound.playComplete();
-    onSaveSettings(localSettings);
+    if (dataDirPath && dataDirPath !== settings.dataDir) {
+      try {
+        await TaskRepository.setDataDir(dataDirPath);
+      } catch (e) {
+        console.error('Failed to update data dir:', e);
+      }
+    }
+    const finalSettings = {
+      ...localSettings,
+      dataDir: dataDirPath,
+    };
+    onSaveSettings(finalSettings);
     setSaveSuccess(true);
     setTimeout(() => {
       setSaveSuccess(false);
@@ -364,6 +419,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="rounded border-[var(--color-border-glass)] bg-[var(--color-surface)] text-[var(--color-accent)] focus:ring-0 w-4 h-4"
               />
             </label>
+
+            {/* Notifications toggle */}
+            <label className="flex items-center justify-between p-3.5 bg-[var(--color-canvas)]/60 rounded-2xl border border-[var(--color-border-glass)] cursor-pointer hover:border-[var(--color-accent)]/40 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <Bell className="w-4 h-4 text-[var(--color-accent)]" />
+                <div>
+                  <div className="text-[var(--color-content-primary)] font-medium">
+                    Напоминания о задачах
+                  </div>
+                  <div className="text-[11px] text-[var(--color-content-muted)]">
+                    Показ нативных уведомлений в системе по расписанию (работает даже при свёрнутом в трей окне)
+                  </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={localSettings.notificationsEnabled}
+                onChange={e => {
+                  sound.playTap();
+                  setLocalSettings({ ...localSettings, notificationsEnabled: e.target.checked });
+                }}
+                className="rounded border-[var(--color-border-glass)] bg-[var(--color-surface)] text-[var(--color-accent)] focus:ring-0 w-4 h-4"
+              />
+            </label>
+
+            {/* Reminders on this device only toggle */}
+            <label className="flex items-center justify-between p-3.5 bg-[var(--color-canvas)]/60 rounded-2xl border border-[var(--color-border-glass)] cursor-pointer hover:border-[var(--color-accent)]/40 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <Laptop className="w-4 h-4 text-[var(--color-accent)]" />
+                <div>
+                  <div className="text-[var(--color-content-primary)] font-medium">
+                    Напоминания только на этом устройстве
+                  </div>
+                  <div className="text-[11px] text-[var(--color-content-muted)]">
+                    Уведомления будут срабатывать только на этом компьютере (не дублируются при двух включённых ПК)
+                  </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={localSettings.remindersThisDeviceOnly}
+                onChange={e => {
+                  sound.playTap();
+                  setLocalSettings({ ...localSettings, remindersThisDeviceOnly: e.target.checked });
+                }}
+                className="rounded border-[var(--color-border-glass)] bg-[var(--color-surface)] text-[var(--color-accent)] focus:ring-0 w-4 h-4"
+              />
+            </label>
+
+            {/* Start with Windows toggle */}
+            <label className="flex items-center justify-between p-3.5 bg-[var(--color-canvas)]/60 rounded-2xl border border-[var(--color-border-glass)] cursor-pointer hover:border-[var(--color-accent)]/40 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <Power className="w-4 h-4 text-[var(--color-accent)]" />
+                <div>
+                  <div className="text-[var(--color-content-primary)] font-medium">
+                    Автозапуск с Windows
+                  </div>
+                  <div className="text-[11px] text-[var(--color-content-muted)]">
+                    Автоматический запуск Calendare в свёрнутом виде в системный трей при старте ОС
+                  </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={localSettings.startWithWindows}
+                onChange={e => handleToggleAutostart(e.target.checked)}
+                className="rounded border-[var(--color-border-glass)] bg-[var(--color-surface)] text-[var(--color-accent)] focus:ring-0 w-4 h-4"
+              />
+            </label>
           </div>
 
           <div className="h-px bg-[var(--color-border-glass)]" />
@@ -431,7 +555,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <div className="h-px bg-[var(--color-border-glass)]" />
 
-          {/* Section 5: Backup / Restore & Storage Maintenance */}
+          {/* Section 5: Data Storage Folder (Реальный выбор папки данных) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-[var(--color-content-primary)]">Папка для хранения данных</span>
+              <span className="text-[11px] text-[var(--color-content-muted)]">Файлы задач</span>
+            </div>
+
+            <div className="p-3.5 bg-[var(--color-canvas)]/60 rounded-2xl border border-[var(--color-border-glass)] space-y-2.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={dataDirPath}
+                  onChange={e => {
+                    setDataDirPath(e.target.value);
+                    setLocalSettings(prev => ({ ...prev, dataDir: e.target.value }));
+                  }}
+                  placeholder="Путь к рабочей папке данных (например, в OneDrive, Google Drive, Syncthing)"
+                  className="flex-1 px-3 py-2 bg-[var(--color-surface)] border border-[var(--color-border-glass)] rounded-xl text-xs text-[var(--color-content-primary)] font-mono placeholder:text-[var(--color-content-muted)] focus:outline-none focus:border-[var(--color-accent)] truncate"
+                />
+                <button
+                  type="button"
+                  onClick={handlePickFolder}
+                  className="px-3.5 py-2 bg-[var(--color-surface-elevated)] hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] rounded-xl text-xs text-[var(--color-content-primary)] flex items-center gap-1.5 transition-colors shrink-0 font-medium"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                  <span>Обзор...</span>
+                </button>
+              </div>
+              <div className="text-[11px] text-[var(--color-content-muted)] leading-relaxed">
+                Задайте рабочую папку на диске для безопасного хранения и прозрачной синхронизации между несколькими компьютерами.
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-[var(--color-border-glass)]" />
+
+          {/* Section 6: Backup / Restore & Storage Maintenance */}
           <div className="space-y-3">
             <span className="font-medium text-[var(--color-content-primary)]">Резервная копия и хранилище</span>
             <div className="flex items-center gap-2.5">

@@ -46,6 +46,7 @@ export default function App() {
 
   useReminderScheduler(tasks, {
     notificationsEnabled: settings.notificationsEnabled,
+    remindersThisDeviceOnly: settings.remindersThisDeviceOnly,
   });
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());

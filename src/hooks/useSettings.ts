@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AppSettings, ThemePreset } from '../types';
 import { sound } from '../utils/sound';
+import { isTauri, tauriApi } from '../services/tauriBridge';
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  dbPath: 'C:\\Users\\User\\OneDrive\\ChronosTask\\tasks.db',
+  dataDir: '',
+  dbPath: '',
   customWeekends: [0, 6], // Sunday (0) and Saturday (6)
   pomodoroWorkMinutes: 25,
   pomodoroBreakMinutes: 5,
   soundEnabled: true,
   autoRollover: true,
   notificationsEnabled: true,
-  startWithWindows: true,
+  remindersThisDeviceOnly: false,
+  startWithWindows: false,
   theme: 'midnight-gold',
   blurStrength: 16,
 };
@@ -31,12 +34,47 @@ export function useSettings() {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        dataDir: parsed.dataDir || parsed.dbPath || DEFAULT_SETTINGS.dataDir,
         theme,
       };
     } catch {
       return DEFAULT_SETTINGS;
     }
   });
+
+  const isInitialMount = useRef(true);
+
+  // Синхронизация реального автозапуска Windows при запуске в среде Tauri
+  useEffect(() => {
+    if (isTauri()) {
+      tauriApi.getAutostart().then(enabled => {
+        setSettings(prev => ({ ...prev, startWithWindows: enabled }));
+      }).catch(err => {
+        console.warn('Failed to query autostart status:', err);
+      });
+
+      tauriApi.getDataDir().then(dir => {
+        if (dir) {
+          setSettings(prev => ({ ...prev, dataDir: dir }));
+        }
+      }).catch(err => {
+        console.warn('Failed to query dataDir:', err);
+      });
+    }
+  }, []);
+
+  // При изменении настройки startWithWindows в среде Tauri обновляем автозапуск ОС
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (isTauri()) {
+      tauriApi.setAutostart(settings.startWithWindows).catch(err => {
+        console.error('Failed to update autostart setting in OS:', err);
+      });
+    }
+  }, [settings.startWithWindows]);
 
   useEffect(() => {
     try {

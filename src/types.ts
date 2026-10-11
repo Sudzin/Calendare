@@ -31,13 +31,15 @@ export interface SyncState {
 export type ThemePreset = 'midnight-gold' | 'emerald-frosted' | 'solar-glass';
 
 export interface AppSettings {
-  dbPath: string;
+  dataDir: string;
+  dbPath?: string; // для обратной совместимости со старыми бэкапами
   customWeekends: number[]; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   pomodoroWorkMinutes: number;
   pomodoroBreakMinutes: number;
   soundEnabled: boolean;
   autoRollover: boolean;
   notificationsEnabled: boolean;
+  remindersThisDeviceOnly: boolean;
   startWithWindows: boolean;
   theme: ThemePreset | 'dark' | 'light';
   blurStrength?: number;

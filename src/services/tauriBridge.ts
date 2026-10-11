@@ -153,4 +153,27 @@ export const tauriApi = {
   async setCredentialCaching(enabled: boolean): Promise<void> {
     await invokeTauri<void>('set_credential_caching', { enabled });
   },
+
+  // ---------------- Native Desktop Capabilities (Этап 5) ----------------
+
+  async showNotification(title: string, body?: string): Promise<void> {
+    await invokeTauri<void>('show_native_notification', { title, body });
+  },
+
+  async getAutostart(): Promise<boolean> {
+    const res = await invokeTauri<boolean>('is_autostart_enabled');
+    return res ?? false;
+  },
+
+  async setAutostart(enabled: boolean): Promise<void> {
+    await invokeTauri<void>('set_autostart', { enabled });
+  },
+
+  async pickFolder(): Promise<string | null> {
+    return invokeTauri<string | null>('pick_folder');
+  },
+
+  async exitApp(): Promise<void> {
+    await invokeTauri<void>('exit_app');
+  },
 };

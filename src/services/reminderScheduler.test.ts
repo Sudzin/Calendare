@@ -497,4 +497,86 @@ describe('useReminderScheduler Hook integration (src/hooks/useReminderScheduler.
 
     expect(mockNotificationConstructor).not.toHaveBeenCalled();
   });
+
+  describe('Координация двух ПК (Этап 5: напоминания только на этом устройстве)', () => {
+    let scheduler: ReminderScheduler;
+
+    beforeEach(() => {
+      localStorage.clear();
+      scheduler = new ReminderScheduler();
+    });
+
+    afterEach(() => {
+      scheduler.stop();
+    });
+
+    it('при активной опции remindersThisDeviceOnly напоминание срабатывает штатно', () => {
+      const task = createSampleTask({
+        id: 'device-task-1',
+        title: 'Задача для текущего ПК',
+        startTime: '10:00',
+        reminderTime: '10:00',
+      });
+
+      scheduler.start(() => [task], {
+        notificationsEnabled: true,
+        remindersThisDeviceOnly: true,
+      });
+
+      vi.advanceTimersByTime(30 * 60 * 1000);
+
+      expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+      expect(mockNotificationConstructor).toHaveBeenCalledWith(
+        'Напоминание: Задача для текущего ПК',
+        { body: 'Время начала: 10:00' }
+      );
+    });
+
+    it('подавляет уведомление на втором ПК, если первый ПК включил "напоминания только на этом устройстве"', () => {
+      const task = createSampleTask({
+        id: 'device-task-2',
+        title: 'Задача синхронизированной папки',
+        startTime: '10:00',
+        reminderTime: '10:00',
+      });
+
+      // Имитируем, что ПК-1 заявил себя монопольным хостом напоминаний
+      localStorage.setItem('chronos_active_reminder_device', 'primary-pc-id');
+
+      // На ПК-2 опция выключена (он обычный второй ПК)
+      scheduler.start(() => [task], {
+        notificationsEnabled: true,
+        remindersThisDeviceOnly: false,
+      });
+
+      vi.advanceTimersByTime(30 * 60 * 1000);
+
+      // На ПК-2 уведомление НЕ должно показаться (не дублируется!)
+      expect(mockNotificationConstructor).not.toHaveBeenCalled();
+    });
+
+    it('планировщик продолжает работать в фоне при свёрнутом/скрытом окне', () => {
+      const task = createSampleTask({
+        id: 'bg-task-1',
+        title: 'Фоновое напоминание из трея',
+        startTime: '10:00',
+        reminderTime: '10:00',
+      });
+
+      scheduler.start(() => [task], {
+        notificationsEnabled: true,
+      });
+
+      // Имитируем скрытие окна в трей — планировщик активен
+      expect(scheduler.isRunning()).toBe(true);
+
+      vi.advanceTimersByTime(30 * 60 * 1000);
+
+      expect(mockNotificationConstructor).toHaveBeenCalledTimes(1);
+      expect(mockNotificationConstructor).toHaveBeenCalledWith(
+        'Напоминание: Фоновое напоминание из трея',
+        { body: 'Время начала: 10:00' }
+      );
+    });
+  });
 });

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   showNotification,
@@ -180,6 +181,38 @@ describe('Notification Service (src/services/notificationService.ts)', () => {
       delete (globalThis as unknown as { Notification?: unknown }).Notification;
       expect(isNotificationSupported()).toBe(false);
       expect(getNotificationPermission()).toBe('denied');
+    });
+  });
+
+  describe('Tauri native notifications (isTauri = true)', () => {
+    beforeEach(() => {
+      // Имитируем окружение Tauri
+      (window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }).__TAURI_INTERNALS__ = {};
+    });
+
+    afterEach(() => {
+      delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    });
+
+    it('isNotificationSupported и getNotificationPermission возвращают true и granted в среде Tauri', async () => {
+      // Удаляем браузерный Notification, чтобы подтвердить работу через Tauri
+      delete (globalThis as unknown as { Notification?: unknown }).Notification;
+
+      expect(isNotificationSupported()).toBe(true);
+      expect(getNotificationPermission()).toBe('granted');
+      expect(await requestPermission()).toBe('granted');
+    });
+
+    it('showNotification вызывает нативное уведомление через tauriApi и не трогает Browser Notification', async () => {
+      const { tauriApi } = await import('./tauriBridge');
+      const spy = vi.spyOn(tauriApi, 'showNotification').mockResolvedValue();
+
+      const result = showNotification('Десктопное напоминание', { body: 'Текст в трее' });
+
+      expect(result).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith('Десктопное напоминание', 'Текст в трее');
+      expect(mockNotificationConstructor).not.toHaveBeenCalled();
     });
   });
 });
