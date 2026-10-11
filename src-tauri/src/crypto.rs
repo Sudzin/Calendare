@@ -1,4 +1,4 @@
-use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use argon2::{Algorithm, Argon2, Params, Version};
 use rand::RngCore;
@@ -75,8 +75,12 @@ pub fn derive_argon2_key(
     Ok(key)
 }
 
-/// Шифрование данных алгоритмом AES-256-GCM со случайным 96-битным (12 байт) nonce
-pub fn encrypt_aes_gcm(key: &[u8; 32], plaintext: &[u8]) -> Result<(Vec<u8>, [u8; 12]), String> {
+/// Шифрование данных алгоритмом AES-256-GCM со случайным 96-битным (12 байт) nonce и AAD
+pub fn encrypt_aes_gcm_with_aad(
+    key: &[u8; 32],
+    plaintext: &[u8],
+    aad: &[u8],
+) -> Result<(Vec<u8>, [u8; 12]), String> {
     let mut nonce_bytes = [0u8; 12];
     rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
 
@@ -84,11 +88,42 @@ pub fn encrypt_aes_gcm(key: &[u8; 32], plaintext: &[u8]) -> Result<(Vec<u8>, [u8
     let cipher = Aes256Gcm::new(cipher_key);
     let nonce = Nonce::from_slice(&nonce_bytes);
 
+    let payload = Payload {
+        msg: plaintext,
+        aad,
+    };
+
     let ciphertext = cipher
-        .encrypt(nonce, plaintext)
+        .encrypt(nonce, payload)
         .map_err(|e| format!("AES-GCM encryption error: {e}"))?;
 
     Ok((ciphertext, nonce_bytes))
+}
+
+/// Расшифровка данных алгоритмом AES-256-GCM с проверкой AAD
+pub fn decrypt_aes_gcm_with_aad(
+    key: &[u8; 32],
+    nonce_bytes: &[u8; 12],
+    ciphertext: &[u8],
+    aad: &[u8],
+) -> Result<Vec<u8>, String> {
+    let cipher_key = Key::<Aes256Gcm>::from_slice(key);
+    let cipher = Aes256Gcm::new(cipher_key);
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    let payload = Payload {
+        msg: ciphertext,
+        aad,
+    };
+
+    cipher
+        .decrypt(nonce, payload)
+        .map_err(|e| format!("AES-GCM decryption/authentication failed: {e}"))
+}
+
+/// Шифрование данных алгоритмом AES-256-GCM со случайным 96-битным (12 байт) nonce
+pub fn encrypt_aes_gcm(key: &[u8; 32], plaintext: &[u8]) -> Result<(Vec<u8>, [u8; 12]), String> {
+    encrypt_aes_gcm_with_aad(key, plaintext, b"")
 }
 
 /// Расшифровка данных алгоритмом AES-256-GCM
@@ -97,13 +132,7 @@ pub fn decrypt_aes_gcm(
     nonce_bytes: &[u8; 12],
     ciphertext: &[u8],
 ) -> Result<Vec<u8>, String> {
-    let cipher_key = Key::<Aes256Gcm>::from_slice(key);
-    let cipher = Aes256Gcm::new(cipher_key);
-    let nonce = Nonce::from_slice(nonce_bytes);
-
-    cipher
-        .decrypt(nonce, ciphertext)
-        .map_err(|e| format!("AES-GCM decryption/authentication failed: {e}"))
+    decrypt_aes_gcm_with_aad(key, nonce_bytes, ciphertext, b"")
 }
 
 /// Вычисление контрольного хеша SHA-256

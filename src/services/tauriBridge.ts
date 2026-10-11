@@ -131,7 +131,7 @@ export const tauriApi = {
     return invokeTauri<VaultStatusResponse>('get_vault_status');
   },
 
-  async createVault(password: string, cacheInCredMgr = true): Promise<CreateVaultResponse | null> {
+  async createVault(password: string, cacheInCredMgr = false): Promise<CreateVaultResponse | null> {
     return invokeTauri<CreateVaultResponse>('create_vault', {
       password,
       cacheInCredMgr,

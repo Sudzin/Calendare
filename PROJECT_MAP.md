@@ -60,7 +60,7 @@ src/
 * `src/types.ts` — TypeScript типы сущностей (`Task`, `AppSettings`, статусы, приоритеты).
 * `src/repositories/TaskRepository.ts` — репозиторий задач; единственный модуль чтения/записи задач в хранилище.
 * `src/utils/date.ts` — централизованный модуль работы с календарными датами и временем.
-* `src/utils/rollover.ts` — чистая бизнес-функция переноса задач на целевую дату.
+* `src/utils/rollover.ts` — чистая бизнес-функция переноса задач на целевую дату. Задачи со статусом `postponed` по варианту А не переносятся и не эскалируются при смене дня, оставаясь на своей исходной дате (аналогично `done`).
 * `src/utils/reminder.ts` — чистый расчет локального момента напоминания задачи (`getReminderDateTime`).
 * `src/services/notificationService.ts` — изолированный сервис вызова Browser Notification API.
 * `src/services/reminderScheduler.ts` — сервис планирования и показа напоминаний по таймеру.

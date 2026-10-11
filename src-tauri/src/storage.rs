@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::crypto::{
-    decrypt_aes_gcm, encrypt_aes_gcm, sha256_digest, MasterKey,
+    decrypt_aes_gcm, decrypt_aes_gcm_with_aad, encrypt_aes_gcm, encrypt_aes_gcm_with_aad,
+    sha256_digest, MasterKey,
 };
 use crate::manifest::{IntegrityWarning, Manifest};
 use crate::vault;
@@ -288,8 +289,9 @@ pub fn read_all_tasks(data_dir: &Path, master_key: Option<&MasterKey>) -> Result
                 nonce.copy_from_slice(&file_bytes[0..12]);
                 let ciphertext = &file_bytes[12..];
 
-                // Расшифровка через AES-256-GCM
-                let decrypted = decrypt_aes_gcm(key.as_bytes(), &nonce, ciphertext);
+                // Расшифровка через AES-256-GCM с передачей ID задачи в качестве AAD
+                let task_id_from_name = file_name.split('.').next().unwrap_or(&file_stem);
+                let decrypted = decrypt_aes_gcm_with_aad(key.as_bytes(), &nonce, ciphertext, task_id_from_name.as_bytes());
                 match decrypted {
                     Ok(plain_bytes) => {
                         let parsed: Result<Value, _> = serde_json::from_slice(&plain_bytes);
@@ -496,11 +498,11 @@ pub fn write_single_task(
     if is_vault {
         let key = master_key.ok_or_else(|| "Хранилище заблокировано".to_string())?;
 
-        // Каждая задача шифруется отдельно с УНИКАЛЬНЫМ nonce на каждую запись
+        // Каждая задача шифруется отдельно с УНИКАЛЬНЫМ nonce на каждую запись и ID задачи как AAD
         let serialized = serde_json::to_vec(&task)
             .map_err(|e| format!("Failed to serialize task: {e}"))?;
 
-        let (ciphertext, nonce) = encrypt_aes_gcm(key.as_bytes(), &serialized)?;
+        let (ciphertext, nonce) = encrypt_aes_gcm_with_aad(key.as_bytes(), &serialized, id.as_bytes())?;
 
         let mut payload = Vec::with_capacity(12 + ciphertext.len());
         payload.extend_from_slice(&nonce);
@@ -563,7 +565,7 @@ pub fn delete_single_task(
         nonce.copy_from_slice(&raw_bytes[0..12]);
         let ciphertext = &raw_bytes[12..];
 
-        let decrypted = decrypt_aes_gcm(key.as_bytes(), &nonce, ciphertext)
+        let decrypted = decrypt_aes_gcm_with_aad(key.as_bytes(), &nonce, ciphertext, id.as_bytes())
             .map_err(|e| format!("Failed to decrypt task for deletion: {e}"))?;
 
         let mut task_obj = serde_json::from_slice::<Value>(&decrypted)
@@ -577,7 +579,7 @@ pub fn delete_single_task(
         let serialized = serde_json::to_vec(&task_obj)
             .map_err(|e| format!("Failed to serialize deleted task: {e}"))?;
 
-        let (new_ciphertext, new_nonce) = encrypt_aes_gcm(key.as_bytes(), &serialized)?;
+        let (new_ciphertext, new_nonce) = encrypt_aes_gcm_with_aad(key.as_bytes(), &serialized, id.as_bytes())?;
         let mut payload = Vec::with_capacity(12 + new_ciphertext.len());
         payload.extend_from_slice(&new_nonce);
         payload.extend_from_slice(&new_ciphertext);
@@ -649,23 +651,68 @@ pub fn import_task_list(
     })
 }
 
-/// Физическая очистка файлов-надгробий старше older_than_days
+/// Парсинг ISO-8601/даты в секунды UNIX для точного вычисления возраста по deletedAt
+pub fn parse_timestamp_secs(s: &str) -> Option<u64> {
+    let s = s.trim();
+    if s.len() < 10 {
+        return None;
+    }
+    let year: i64 = s[0..4].parse().ok()?;
+    let month: i64 = s[5..7].parse().ok()?;
+    let day: i64 = s[8..10].parse().ok()?;
+
+    let mut hour: i64 = 0;
+    let mut min: i64 = 0;
+    let mut sec: i64 = 0;
+
+    if s.len() >= 19 && (s.as_bytes()[10] == b'T' || s.as_bytes()[10] == b' ') {
+        hour = s[11..13].parse().ok()?;
+        min = s[14..16].parse().ok()?;
+        sec = s[17..19].parse().ok()?;
+    }
+
+    let mut days_since_epoch = (year - 1970) * 365 + (year - 1969) / 4;
+    let days_in_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    for m in 1..month {
+        let dim = if m == 2 && is_leap { 29 } else { days_in_months[(m - 1) as usize] };
+        days_since_epoch += dim;
+    }
+    days_since_epoch += day - 1;
+
+    if days_since_epoch < 0 {
+        return None;
+    }
+
+    let total_secs = days_since_epoch * 86400 + hour * 3600 + min * 60 + sec;
+    Some(total_secs as u64)
+}
+
+/// Физическая очистка файлов-надгробий по полю deletedAt (не mtime)
+/// Диапазон: строго 7..=365 дней
+/// Защита от конфликтных копий: если победившая версия задачи активна, файлы не удаляются
 pub fn purge_old_tombstones(
     data_dir: &Path,
     older_than_days: u64,
     master_key: Option<&MasterKey>,
 ) -> Result<PurgeSummary, String> {
+    if !(7..=365).contains(&older_than_days) {
+        return Err(format!("older_than_days must be between 7 and 365, got {older_than_days}"));
+    }
+
     ensure_directories(data_dir)?;
     let tasks_dir = data_dir.join("tasks");
     let entries = fs::read_dir(&tasks_dir)
         .map_err(|e| format!("Failed to read tasks directory: {e}"))?;
 
-    let now = SystemTime::now();
-    let max_age_duration = std::time::Duration::from_secs(older_than_days * 86400);
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let cutoff_secs = now_secs.saturating_sub(older_than_days * 86400);
 
-    let mut purged_count = 0;
-    let mut kept_count = 0;
-    let mut purged_ids = Vec::new();
+    // Группировка файлов по ID задачи для защиты от конфликтных копий
+    let mut tasks_by_id: std::collections::HashMap<String, Vec<(PathBuf, Value)>> = std::collections::HashMap::new();
 
     for entry in entries {
         let entry = match entry {
@@ -677,69 +724,107 @@ pub fn purge_old_tombstones(
             continue;
         }
 
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if file_name.contains(".tmp.") {
+            continue;
+        }
+
         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
-        let mut is_deleted = false;
-
-        if ext == "enc" {
+        let val_opt = if ext == "enc" {
             if let Some(key) = master_key {
                 if let Ok(raw_bytes) = fs::read(&path) {
                     if raw_bytes.len() >= 12 + 16 {
                         let mut nonce = [0u8; 12];
                         nonce.copy_from_slice(&raw_bytes[0..12]);
                         let ciphertext = &raw_bytes[12..];
-                        if let Ok(plain) = decrypt_aes_gcm(key.as_bytes(), &nonce, ciphertext) {
-                            if let Ok(val) = serde_json::from_slice::<Value>(&plain) {
-                                is_deleted = val
-                                    .as_object()
-                                    .and_then(|o| o.get("deletedAt"))
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| !s.trim().is_empty())
-                                    .unwrap_or(false);
-                            }
+                        let task_id_from_name = file_name.split('.').next().unwrap_or("");
+                        if let Ok(plain) = decrypt_aes_gcm_with_aad(key.as_bytes(), &nonce, ciphertext, task_id_from_name.as_bytes()) {
+                            serde_json::from_slice::<Value>(&plain).ok()
+                        } else {
+                            None
                         }
+                    } else {
+                        None
                     }
+                } else {
+                    None
                 }
+            } else {
+                None
             }
         } else if ext == "json" {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(val) = serde_json::from_str::<Value>(&content) {
-                    is_deleted = val
-                        .as_object()
-                        .and_then(|o| o.get("deletedAt"))
-                        .and_then(|v| v.as_str())
-                        .map(|s| !s.trim().is_empty())
-                        .unwrap_or(false);
-                }
+                serde_json::from_str::<Value>(&content).ok()
+            } else {
+                None
             }
-        }
+        } else {
+            None
+        };
 
-        if is_deleted {
-            let is_old = if let Ok(metadata) = entry.metadata() {
-                if let Ok(modified) = metadata.modified() {
-                    now.duration_since(modified).unwrap_or_default() >= max_age_duration
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            if is_old {
-                if fs::remove_file(&path).is_ok() {
-                    purged_count += 1;
-                    purged_ids.push(file_stem.to_string());
-                } else {
-                    kept_count += 1;
-                }
-            } else {
-                kept_count += 1;
+        if let Some(val) = val_opt {
+            if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                tasks_by_id.entry(id.to_string()).or_default().push((path, val));
             }
         }
     }
 
-    // Если хранилище зашифровано, удаляем очищенные надгробия из манифеста
+    let mut purged_count = 0;
+    let mut kept_count = 0;
+    let mut purged_ids = Vec::new();
+
+    for (id, files) in tasks_by_id {
+        // Защита от конфликтных копий: детерминированно находим победившую версию для данного ID
+        let mut winning = files[0].1.clone();
+        for (_, other) in &files[1..] {
+            winning = choose_winning_task(winning, other.clone());
+        }
+
+        // Если победившая версия активна — задача жива, файлы не трогаем
+        let is_winning_deleted = winning
+            .as_object()
+            .and_then(|o| o.get("deletedAt"))
+            .and_then(|v| v.as_str())
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+
+        if !is_winning_deleted {
+            kept_count += files.len();
+            continue;
+        }
+
+        // Проверяем возраст именно по deletedAt
+        let deleted_at_str = winning
+            .as_object()
+            .and_then(|o| o.get("deletedAt"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        let is_old = if let Some(del_secs) = parse_timestamp_secs(deleted_at_str) {
+            del_secs <= cutoff_secs
+        } else {
+            false
+        };
+
+        if is_old {
+            let mut all_removed = true;
+            for (p, _) in &files {
+                if fs::remove_file(p).is_err() {
+                    all_removed = false;
+                }
+            }
+            if all_removed {
+                purged_count += 1;
+                purged_ids.push(id);
+            } else {
+                kept_count += 1;
+            }
+        } else {
+            kept_count += 1;
+        }
+    }
+
     if let Some(key) = master_key {
         if let Ok(mut manifest) = Manifest::load(data_dir, key) {
             manifest.entries.retain(|e| !purged_ids.contains(&e.id));
@@ -785,7 +870,7 @@ pub fn migrate_existing_tasks_to_vault(
                             let serialized = serde_json::to_vec(&val)
                                 .map_err(|e| format!("Serialization error: {e}"))?;
 
-                            let (ciphertext, nonce) = encrypt_aes_gcm(master_key.as_bytes(), &serialized)?;
+                            let (ciphertext, nonce) = encrypt_aes_gcm_with_aad(master_key.as_bytes(), &serialized, id.as_bytes())?;
                             let mut payload = Vec::with_capacity(12 + ciphertext.len());
                             payload.extend_from_slice(&nonce);
                             payload.extend_from_slice(&ciphertext);
@@ -985,6 +1070,280 @@ mod tests {
         assert!(!bad_path.exists());
 
         // Проверяем, что файл перемещен в corrupt/
+        let corrupt_entries = fs::read_dir(dir.join("corrupt")).unwrap().count();
+        assert_eq!(corrupt_entries, 1);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_atomic_write_no_tmp_leftover() {
+        let dir = create_temp_data_dir();
+        let target = dir.join("tasks").join("test_atomic.json");
+
+        assert!(atomic_write_file(&target, "{\"hello\":\"world\"}").is_ok());
+        assert!(target.exists());
+
+        // Проверяем, что в папке tasks нет оставшихся .tmp файлов
+        let entries = fs::read_dir(dir.join("tasks")).unwrap();
+        for entry in entries {
+            let name = entry.unwrap().file_name().to_string_lossy().to_string();
+            assert!(!name.contains(".tmp."));
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_corrupt_json_moved_to_corrupt() {
+        let dir = create_temp_data_dir();
+        let bad_file = dir.join("tasks").join("broken.json");
+        fs::write(&bad_file, "{ broken json: ,").unwrap();
+
+        let res = read_all_tasks(&dir, None).expect("read failed");
+        assert_eq!(res.tasks.len(), 0);
+        assert_eq!(res.corrupted_files.len(), 1);
+        assert_eq!(res.corrupted_files[0].filename, "broken.json");
+        assert!(!bad_file.exists());
+
+        let corrupt_entries = fs::read_dir(dir.join("corrupt")).unwrap().count();
+        assert_eq!(corrupt_entries, 1);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_tombstone_hides_task_and_no_ghost_on_missing() {
+        let dir = create_temp_data_dir();
+
+        // 1. Удаление несуществующей задачи не создает файл
+        assert!(delete_single_task(&dir, "missing-task", "2026-10-09T10:00:00Z", None).is_ok());
+        assert!(!dir.join("tasks").join("missing-task.json").exists());
+
+        // 2. Создаем задачу и затем удаляем через tombstone
+        let task = json!({
+            "id": "task-to-delete",
+            "title": "Удаляемая задача",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "low"
+        });
+        assert!(write_single_task(&dir, task, None).is_ok());
+
+        assert!(delete_single_task(&dir, "task-to-delete", "2026-10-09T10:05:00Z", None).is_ok());
+
+        let res = read_all_tasks(&dir, None).expect("read failed");
+        assert_eq!(res.tasks.len(), 0);
+        assert!(res.corrupted_files.is_empty());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_import_is_idempotent() {
+        let dir = create_temp_data_dir();
+
+        let tasks = vec![
+            json!({
+                "id": "t1",
+                "title": "T1",
+                "date": "2026-10-09",
+                "status": "todo",
+                "priority": "high",
+                "updatedAt": "2026-10-09T10:00:00Z"
+            }),
+            json!({
+                "id": "t2",
+                "title": "T2",
+                "date": "2026-10-09",
+                "status": "todo",
+                "priority": "medium",
+                "updatedAt": "2026-10-09T10:00:00Z"
+            }),
+        ];
+
+        let summary1 = import_task_list(&dir, tasks.clone(), None).unwrap();
+        assert_eq!(summary1.imported_count, 2);
+        assert_eq!(summary1.skipped_count, 0);
+
+        // Повторный импорт тех же задач не дублирует и пропускает
+        let summary2 = import_task_list(&dir, tasks, None).unwrap();
+        assert_eq!(summary2.imported_count, 0);
+        assert_eq!(summary2.skipped_count, 2);
+
+        let res = read_all_tasks(&dir, None).unwrap();
+        assert_eq!(res.tasks.len(), 2);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_unsafe_id_rejected() {
+        let dir = create_temp_data_dir();
+
+        let unsafe_ids = vec!["../x", "a/b", "a\\b", "CON", "con", "", "   ", "AUX"];
+        for bad_id in unsafe_ids {
+            assert!(!is_safe_id(bad_id), "id should be unsafe: {bad_id}");
+
+            let bad_task = json!({
+                "id": bad_id,
+                "title": "Bad ID",
+                "date": "2026-10-09",
+                "status": "todo",
+                "priority": "low"
+            });
+
+            assert!(write_single_task(&dir, bad_task, None).is_err());
+            assert!(delete_single_task(&dir, bad_id, "2026-10-09T10:00:00Z", None).is_err());
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_merge_conflicting_task_files_deterministic_winner() {
+        let dir = create_temp_data_dir();
+
+        // Имитируем два файла для одного id (файл задачи и файл конфликта синхронизации)
+        let older = json!({
+            "id": "task-conflict-1",
+            "title": "Старое название",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "low",
+            "updatedAt": "2026-10-09T08:00:00Z"
+        });
+
+        let newer = json!({
+            "id": "task-conflict-1",
+            "title": "Новое название с другого ПК",
+            "date": "2026-10-09",
+            "status": "done",
+            "priority": "high",
+            "updatedAt": "2026-10-09T10:00:00Z"
+        });
+
+        let f1 = dir.join("tasks").join("task-conflict-1.json");
+        let f2 = dir.join("tasks").join("task-conflict-1.sync-conflict-deviceB.json");
+
+        atomic_write_file(&f1, &serde_json::to_string(&older).unwrap()).unwrap();
+        atomic_write_file(&f2, &serde_json::to_string(&newer).unwrap()).unwrap();
+
+        let res = read_all_tasks(&dir, None).unwrap();
+        assert_eq!(res.tasks.len(), 1);
+        assert_eq!(res.tasks[0]["title"], "Новое название с другого ПК");
+        assert_eq!(res.tasks[0]["status"], "done");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_purge_old_tombstones() {
+        let dir = create_temp_data_dir();
+
+        // 1. Диапазон 7..=365 дней: значение вне диапазона дает ошибку
+        assert!(purge_old_tombstones(&dir, 6, None).is_err());
+        assert!(purge_old_tombstones(&dir, 366, None).is_err());
+
+        // 2. Активная задача
+        let active = json!({
+            "id": "active-task",
+            "title": "Активная",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "medium"
+        });
+        write_single_task(&dir, active, None).unwrap();
+
+        // 3. Свежий tombstone (3 дня назад)
+        let fresh_tomb = json!({
+            "id": "fresh-deleted",
+            "title": "Недавно удалённая",
+            "date": "2026-10-06",
+            "status": "todo",
+            "priority": "low",
+            "deletedAt": "2026-10-06T10:00:00Z"
+        });
+        write_single_task(&dir, fresh_tomb, None).unwrap();
+
+        // 4. Старый tombstone (40 дней назад)
+        let old_tomb = json!({
+            "id": "old-deleted",
+            "title": "Давно удалённая",
+            "date": "2026-08-30",
+            "status": "todo",
+            "priority": "low",
+            "deletedAt": "2026-08-30T10:00:00Z"
+        });
+        write_single_task(&dir, old_tomb, None).unwrap();
+
+        // 5. Защита от конфликтных копий:
+        // Задача помечена как удаленная в одном файле, но более свежая конфликтная копия активна!
+        let conflict_deleted = json!({
+            "id": "conflict-task",
+            "title": "Удаленная на ПК 1",
+            "date": "2026-08-01",
+            "status": "todo",
+            "priority": "low",
+            "deletedAt": "2026-08-01T10:00:00Z",
+            "updatedAt": "2026-08-01T10:00:00Z"
+        });
+        let conflict_active = json!({
+            "id": "conflict-task",
+            "title": "Восстановленная на ПК 2",
+            "date": "2026-08-01",
+            "status": "todo",
+            "priority": "high",
+            "updatedAt": "2026-09-01T10:00:00Z"
+        });
+        let f_del = dir.join("tasks").join("conflict-task.json");
+        let f_act = dir.join("tasks").join("conflict-task.sync-conflict-deviceB.json");
+        atomic_write_file(&f_del, &serde_json::to_string(&conflict_deleted).unwrap()).unwrap();
+        atomic_write_file(&f_act, &serde_json::to_string(&conflict_active).unwrap()).unwrap();
+
+        // Очистка надгробий старше 30 дней
+        let summary = purge_old_tombstones(&dir, 30, None).unwrap();
+        assert_eq!(summary.purged_count, 1); // Только old-deleted очищен!
+
+        // Проверяем сохранность файлов:
+        assert!(dir.join("tasks").join("active-task.json").exists());
+        assert!(dir.join("tasks").join("fresh-deleted.json").exists());
+        assert!(!dir.join("tasks").join("old-deleted.json").exists());
+        // conflict-task защищена от удаления, так как активная версия победила!
+        assert!(f_act.exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_task_id_as_aad_protects_against_file_rename() {
+        let dir = create_temp_data_dir();
+        let (master_key, _) = vault::create_vault(&dir, "SecurePassword123!", false).unwrap();
+
+        let task1 = json!({
+            "id": "task-alpha",
+            "title": "Alpha task",
+            "date": "2026-10-09",
+            "status": "todo",
+            "priority": "low"
+        });
+        write_single_task(&dir, task1, Some(&master_key)).unwrap();
+
+        let original_enc = dir.join("tasks").join("task-alpha.enc");
+        assert!(original_enc.exists());
+
+        // Переименовываем task-alpha.enc в task-beta.enc (попытка подмены ID)
+        let renamed_enc = dir.join("tasks").join("task-beta.enc");
+        fs::rename(&original_enc, &renamed_enc).unwrap();
+
+        // Читаем: GCM падает из-за несовпадения AAD ("task-beta" != "task-alpha")
+        // и файл перемещается в corrupt/
+        let res = read_all_tasks(&dir, Some(&master_key)).unwrap();
+        assert_eq!(res.tasks.len(), 0);
+        assert_eq!(res.corrupted_files.len(), 1);
+        assert_eq!(res.corrupted_files[0].filename, "task-beta.enc");
+        assert!(!renamed_enc.exists());
+
         let corrupt_entries = fs::read_dir(dir.join("corrupt")).unwrap().count();
         assert_eq!(corrupt_entries, 1);
 

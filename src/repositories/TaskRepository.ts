@@ -454,7 +454,10 @@ export class TaskRepository {
     };
   }
 
-  static async createVault(password: string, cacheInCredMgr = true): Promise<{ recoveryKey: string }> {
+  static async createVault(password: string, cacheInCredMgr = false): Promise<{ recoveryKey: string }> {
+    if (password.length < 10) {
+      throw new Error('Пароль должен содержать не менее 10 символов');
+    }
     if (isTauri()) {
       const res = await tauriApi.createVault(password, cacheInCredMgr);
       if (!res) throw new Error('Не удалось создать зашифрованное хранилище');

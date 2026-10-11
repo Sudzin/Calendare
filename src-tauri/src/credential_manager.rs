@@ -27,8 +27,9 @@ mod imp {
     const CRED_TYPE_GENERIC: u32 = 1;
     const CRED_PERSIST_LOCAL_MACHINE: u32 = 2;
 
+    // Rust 2024 edition requires `unsafe extern "system"` for foreign function interfaces
     #[link(name = "advapi32")]
-    extern "system" {
+    unsafe extern "system" {
         fn CredWriteW(credential: *const CREDENTIALW, flags: u32) -> i32;
         fn CredReadW(target_name: *const u16, r#type: u32, flags: u32, credential: *mut *mut CREDENTIALW) -> i32;
         fn CredDeleteW(target_name: *const u16, r#type: u32, flags: u32) -> i32;

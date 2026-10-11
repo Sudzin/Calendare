@@ -714,6 +714,10 @@ describe('TaskRepository', () => {
       unsubscribe();
     });
 
+    it('отклоняет пароль длиной менее 10 символов', async () => {
+      await expect(TaskRepository.createVault('short9')).rejects.toThrow('не менее 10 символов');
+    });
+
     it('создание зашифрованного хранилища: возвращает ключ восстановления достаточной длины', async () => {
       const res = await TaskRepository.createVault('SecurePassword123!', true);
       expect(res.recoveryKey).toBeDefined();

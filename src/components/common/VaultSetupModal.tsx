@@ -17,7 +17,7 @@ export const VaultSetupModal: React.FC<VaultSetupModalProps> = ({
   const [step, setStep] = useState<'create' | 'recovery'>('create');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [cacheInCredMgr, setCacheInCredMgr] = useState(true);
+  const [cacheInCredMgr, setCacheInCredMgr] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState('');
   const [confirmedSaved, setConfirmedSaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -30,8 +30,8 @@ export const VaultSetupModal: React.FC<VaultSetupModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (password.length < 6) {
-      setError('Пароль должен содержать не менее 6 символов');
+    if (password.length < 10) {
+      setError('Пароль должен содержать не менее 10 символов');
       return;
     }
 
@@ -121,7 +121,7 @@ export const VaultSetupModal: React.FC<VaultSetupModalProps> = ({
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Придумайте надежный пароль"
+                placeholder="Придумайте надежный пароль (минимум 10 символов)"
                 autoFocus
                 className="w-full px-4 py-2.5 rounded-2xl bg-[var(--color-bg-input)] border border-[var(--color-border-input)] focus:border-[var(--color-emerald-500)] focus:outline-none text-sm transition-colors"
               />
@@ -152,7 +152,10 @@ export const VaultSetupModal: React.FC<VaultSetupModalProps> = ({
                   Кэшировать производный ключ в Windows Credential Manager
                 </span>
                 <span className="text-[var(--color-content-muted)] text-[11px] block mt-0.5">
-                  Позволяет не вводить пароль при каждом запуске приложения на этом ПК. Можно отключить в настройках в любой момент.
+                  По умолчанию выключено. Позволяет не вводить пароль при каждом запуске.
+                </span>
+                <span className="text-amber-400/90 text-[10px] block mt-1">
+                  Риск: любой процесс или пользователь с доступом к вашей учетной записи Windows сможет получить доступ к данным без пароля.
                 </span>
               </div>
             </label>

@@ -122,8 +122,8 @@ pub fn create_vault(
         return Err("Зашифрованное хранилище уже существует".to_string());
     }
 
-    if password.trim().is_empty() {
-        return Err("Пароль не может быть пустым".to_string());
+    if password.chars().count() < 10 {
+        return Err("Пароль должен содержать не менее 10 символов".to_string());
     }
 
     let master_key = MasterKey::generate();
@@ -343,4 +343,22 @@ pub fn update_credential_caching(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_vault_rejects_password_shorter_than_10() {
+        let dir = std::env::temp_dir().join(format!("chronos_pwd_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+
+        let res = create_vault(&dir, "123456789", false);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("не менее 10"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

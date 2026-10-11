@@ -123,11 +123,12 @@ npm run preview  # Preview production build locally
 When reviewing or writing code, ensure these invariants are strictly preserved:
 
 ### A. The Rollover & Priority Escalation Rule
-1. Uncompleted tasks (`status !== 'done'`) whose `date < today` must be moved to `today`.
+1. Uncompleted tasks (`status !== 'done' && status !== 'postponed'`) whose `date < today` must be moved to `today`.
 2. Priority MUST escalate by exactly +1 tier:
    $$\text{low} \longrightarrow \text{medium} \longrightarrow \text{high} \longrightarrow \text{critical}$$
 3. Tasks already at `critical` stay `critical`, but MUST receive `isEscalated = true` and display the **«Срочный долг» (Urgent debt)** badge.
 4. Tasks with `status === 'done'` must NEVER be rolled over.
+5. Отложенные задачи (`status === 'postponed'`) по варианту А НЕ переносятся и НЕ эскалируются при смене дня, оставаясь на своей исходной календарной дате.
 
 ### B. Interactive Markdown Reverse-Sync
 * In `MarkdownWorkspace.tsx`, clicking on an interactive checkbox in the preview view (`- [ ]` / `- [x]`) must mutate the exact line in the raw markdown source string via regex matching, maintaining character fidelity.

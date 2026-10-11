@@ -43,6 +43,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
+  const [isConfirmingPurge, setIsConfirmingPurge] = useState(false);
   const [isVaultSetupOpen, setIsVaultSetupOpen] = useState(false);
   const [vaultStatus, setVaultStatus] = useState<{ is_initialized: boolean; is_unlocked: boolean; cache_in_credential_manager: boolean } | null>(null);
 
@@ -67,6 +68,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handlePurgeTombstones = async () => {
     sound.playTap();
+    setIsConfirmingPurge(false);
     try {
       const res = await TaskRepository.purgeOldTombstones(30);
       sound.playComplete();
@@ -450,25 +452,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="pt-1">
-              <button
-                type="button"
-                onClick={handlePurgeTombstones}
-                className="w-full px-4 py-2 bg-[var(--color-canvas)]/40 hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] rounded-2xl text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] flex items-center justify-between transition-colors text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <Trash2 className="w-3.5 h-3.5 text-[var(--color-content-muted)]" />
-                  <span>Очистка надгробий старше 30 дней</span>
+              {isConfirmingPurge ? (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-2 text-amber-300 font-medium text-xs">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Подтвердите физическое удаление надгробий старше 30 дней</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--color-content-muted)]">
+                    Удалённые задачи старше 30 дней будут безвозвратно стёрты с диска.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handlePurgeTombstones}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-medium rounded-xl text-xs transition-colors shadow-xs"
+                    >
+                      Да, очистить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playTap();
+                        setIsConfirmingPurge(false);
+                      }}
+                      className="px-3 py-1.5 bg-[var(--color-canvas)]/60 hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] text-[var(--color-content-secondary)] rounded-xl text-xs transition-colors"
+                    >
+                      Отмена
+                    </button>
+                  </div>
                 </div>
-                {purgeStatus ? (
-                  <span className="font-mono text-[11px] text-[var(--color-accent)] font-medium">
-                    {purgeStatus}
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-[var(--color-content-muted)]">
-                    Физическое удаление
-                  </span>
-                )}
-              </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playTap();
+                    setIsConfirmingPurge(true);
+                  }}
+                  className="w-full px-4 py-2 bg-[var(--color-canvas)]/40 hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-glass)] rounded-2xl text-[var(--color-content-secondary)] hover:text-[var(--color-content-primary)] flex items-center justify-between transition-colors text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="w-3.5 h-3.5 text-[var(--color-content-muted)]" />
+                    <span>Очистка надгробий старше 30 дней</span>
+                  </div>
+                  {purgeStatus ? (
+                    <span className="font-mono text-[11px] text-[var(--color-accent)] font-medium">
+                      {purgeStatus}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-[var(--color-content-muted)]">
+                      Физическое удаление
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -503,7 +539,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       Кэшировать производный ключ в Windows Credential Manager
                     </span>
                     <span className="text-[10px] text-[var(--color-content-muted)] block mt-0.5">
-                      Автоматическая разблокировка при запуске без повторного ввода пароля на этом ПК.
+                      Автоматическая разблокировка при запуске без повторного ввода пароля на этом ПК (по умолчанию выключено).
+                    </span>
+                    <span className="text-[10px] text-amber-400/90 block mt-1">
+                      Риск: любой процесс с правами вашей учетной записи Windows сможет получить доступ к хранилищу без ввода мастер-пароля.
                     </span>
                   </div>
                 </label>
